@@ -1,18 +1,22 @@
-# CLAUDE.md — Contexto do projeto (TEMPLATE High Ticket)
+# CLAUDE.md — Contexto do projeto (Workshop 13 Salário · Rogério)
 
 > Este arquivo é lido automaticamente pelo Claude Code ao abrir o repositório.
 > Ele carrega TODO o contexto necessário para continuar o trabalho sem depender
 > de mensagens anteriores. Mantenha-o atualizado.
->
-> **Este é um TEMPLATE limpo.** Todos os valores específicos do cliente estão
-> marcados como `<<PREENCHER: descrição>>`. Siga o CHECKLIST abaixo para
-> configurar um cliente novo.
+
+> ⚠️ **IMPORTANTE — esta instância NÃO é o template genérico de High Ticket.**
+> É um **funil de LANÇAMENTO PAGO** (venda direta de ingresso): o lead **é** a
+> compra. **Não há aba de Conversas, nem Leads legado, nem etapa de MQL.** As
+> fontes são **duas planilhas distintas** (Meta Ads e Compradores). Só entram no
+> dashboard as **compras com UTM** (tráfego pago); "direct"/orgânico fica de fora.
+> O funil é: **Investimento → Impressões → Cliques → Visitas à Página → Compras →
+> Faturamento**. Partes do texto abaixo descrevem o template original de High
+> Ticket (Conversas/MQL/telefone) e **não** se aplicam a este cliente — a fonte
+> de verdade é o `build/build.py` (`process()`) já adaptado.
 
 ---
 
-## ✅ CHECKLIST DE NOVO CLIENTE (fazer em ordem)
-
-Preencha cada `<<PREENCHER: …>>` do repositório. Ordem sugerida:
+## ✅ Valores configurados deste cliente
 
 1. **`build/build.py` — constantes do topo:**
    - `SPREADSHEET_ID` — ID da planilha central do Google Sheets do cliente.
@@ -69,27 +73,27 @@ puro + Chart.js via CDN) publicado no **GitHub Pages**, que cruza a lista de
 **Leads** com o gerenciador de mídia paga e se atualiza sozinho a cada ~30 min
 (build 100% na nuvem via GitHub Actions, disparado externamente pelo cron-job.org).
 
-- **URL pública:** `https://<<PREENCHER: owner do GitHub>>.github.io/<<PREENCHER: nome do repositório>>/`
+- **URL pública:** `https://scale-ag.github.io/dash-partiu-empreender-13salario/`
 - **Somente leitura** das planilhas. Nunca escrever de volta.
 
-## Fontes de dados (Google Sheets)
+## Fontes de dados (Google Sheets — DUAS planilhas distintas, somente leitura)
 
-Spreadsheet ID: `<<PREENCHER: SPREADSHEET_ID>>` ("<<PREENCHER: nome da planilha central>>").
+| Planilha / aba | Spreadsheet ID | gid | Colunas usadas |
+|-----|-----|-----|----------------|
+| **Meta Ads** — "Extração Dashboard", aba **Página1** | `1OMB7kekfxCioZZE6Tm2c317m7-FLFjFKcgjR1rMkdWE` | `0` | `Day` · `Campaign Name` · `Ad Set Name` · `Ad Name` · `Impressions` · `Link Clicks` · `Landing Page Views` · `Amount Spent` |
+| **Compradores** — "Partiu Empreender \| 2026", aba **Wks 13º Salario** | `1Qe1_LFcrd98hhOTa5rJAL78ZRUoHCZ-Pj4kIRgdiljI` | `1583208180` | `Data` · `Nome` · `Email` · `Valor da Compra` · `Forma de Pagto` · `Utm_source` · `utm_campaign` · `utm_medium` · `utm_content` · `Utm_term` · `Origem de Checkout` |
 
-| Aba | gid | Colunas usadas |
-|-----|-----|----------------|
-| **Conversas** (fonte principal — webhook de mensageria/WhatsApp) | `<<PREENCHER: GID_CONVERSAS>>` | `Data` · `Mensagem` · `Nome` · `Telefone` · coluna de MQL · `Campanha` · `Conjunto` · `Anúncio` · `Especialidades` |
-| **Leads** (legado — popup/form antigo, só contada) | `<<PREENCHER: GID_LEADS>>` | `Data` · `Nome` · `Email` · `Telefone` · coluna de MQL · `Especialidade` · `utm_*` · `MQL` · `Compra Detectada`/`Faturamento Detectado`/`Data Compra` |
-| **Meta Ads** | `<<PREENCHER: GID_META>>` | `Day` · `Ad ID` · `Campaign Name` · `Ad Set Name` · `Ad Name` · `Amount Spent` · `Impressions` · `Link Clicks` · `Landing Page Views` · `Content Views` · `Adds to Cart` · `Subscriptions` · `Subscribe Conversion Value` |
-| **New Subscriptions** (Compradores) | `<<PREENCHER: GID_SALES>>` | `Data` · `Nome` · `Email` · `Telefone` · `Produto` · `Oferta` · `Faturamento` · `Receita` · `Método de Pagamento` · `Campanha` · `Conjunto` · `Anúncio` · `UF` · `Cidade` · `Zip Code` · `Endereço` |
+> A aba Meta Ads **não tem** colunas de Adds to Cart/Checkout, Subscriptions nem
+> permalink do criativo (por isso Checkout fica implícito e o "Link" aparece "—").
+> A aba de Compradores **não tem telefone**; a atribuição é por **UTM**.
 
 URL de export CSV: `https://docs.google.com/spreadsheets/d/<ID>/export?format=csv&gid=<GID>`
 
-### Regra de Lead Qualificado (MQL)
-Coluna de qualificação (<<PREENCHER: nome da coluna de MQL, ex. "É médico?">>) == "Sim".
-Lógica em `build.py` → `is_medico`. O gráfico "Leads por especialidade" (`app.js`,
-`renderGeralCore`) colore verde/cinza pelo mesmo critério, usando a coluna
-`Especialidades`/`Especialidade` como dimensão.
+### Regra de conversão (lead = compra do ingresso)
+**Não há MQL neste funil.** A conversão é a **compra**. Entra no dashboard apenas
+a linha da aba de Compradores com **`utm_campaign` preenchido** (checkout vindo do
+anúncio); "direct"/orgânico fica de fora. `is_medico()` em `build.py` ficou como
+`True` só por compatibilidade (toda compra de tráfego é conversão, `q=1`).
 
 ### Vendas & Faturamento (cruzamento com Compradores)
 `build.py` → `build_sales_index()` lê a aba **New Subscriptions** e indexa por
@@ -127,12 +131,12 @@ volta ao gasto sem imposto. Se o cliente tiver um fator diferente, ajuste
 `TAX_FACTOR`; se não houver imposto, use `TAX_FACTOR = 1.0`.
 
 ### Convenções de campanha (do cliente)
-Todas as campanhas usam o prefixo `<<PREENCHER: MAIN_PRODUCT_PREFIX>>`
-(`MAIN_PRODUCT_PREFIX`), sem filtrar por sub-funil — mantém TODAS as campanhas
-no dashboard. Ajuste o prefixo e, se o cliente usar siglas de etapa
-(ex. `<<PREENCHER: siglas de etapa, se houver>>`), documente-as aqui. A Conversas
-já traz `Campanha`/`Conjunto`/`Anúncio` prontos (nomes idênticos ao
-`Campaign Name`/`Ad Set Name`/`Ad Name` do Meta Ads) — `build.py` só copia esses
+Sigla única do funil: **`W-13S`** (`MAIN_PRODUCT_PREFIX`), do `Campaign Name` do
+Meta Ads: `W-13S | E4-VEN | P1-QUENTE | VND | ABO | <data> | Teste de ads`
+(etapas: `E4-VEN` = venda · `P1-QUENTE` = público quente · `VND` · `ABO`). A
+atribuição da compra ao anúncio usa o `utm_content` da aba de Compradores
+(= `Ad Name` do Meta: AD01…AD06); campanha/conjunto vêm da estrutura real do Meta
+para aquele anúncio. `build.py` monta esse mapa (`ad_struct`) e só copia esses
 valores, sem precisar de UTM nessa aba.
 
 ## Arquitetura / arquivos

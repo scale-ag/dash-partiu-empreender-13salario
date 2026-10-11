@@ -13,12 +13,15 @@ name: Coletar dados brutos do Relatório (pré-Insights)
 #
 # build/relatorios_dados.json não é lido pelo site; ao commitar na main ele
 # só passa pelo path filter do deploy.yml (rebuild inofensivo/idempotente).
+# NOTE: Insights de Tráfego (aba Relatório) estão DESLIGADOS para este cliente.
+# Este cliente é um lançamento pago (sem Conversas/MQL) e os scripts
+# build/coletar_dados_relatorio.py e build/gerar_relatorios.py ainda usam o
+# modelo antigo do template (process() com 4 abas + telefone). Por isso o
+# agendamento diário foi REMOVIDO — o workflow só roda se disparado à mão.
+# Para ativar os Insights neste cliente, adapte esses dois scripts ao novo
+# process(meta_rows, sales_rows) e reative o schedule abaixo.
 on:
   workflow_dispatch:
-  schedule:
-    # 1x ao dia, 23h50 horário de Brasília = 02h50 UTC (10 min antes da
-    # Routine do Claude escrever os Insights, garantindo dado fresco).
-    - cron: "50 2 * * *"
 
 permissions:
   contents: write

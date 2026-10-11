@@ -73,32 +73,26 @@ os Insights.
 
 ## Contexto do funil
 
-**Funil de High Ticket (<<PREENCHER: nome do cliente>>)** — <<PREENCHER: descrição
-curta do cliente/oferta>>. Funil de captura via WhatsApp com venda 1:1 (comercial
-fecha por conversa/reunião, não carrinho direto): o anúncio no Meta Ads leva
-a uma página de captura com botão do WhatsApp; ao clicar, o lead chama no
-WhatsApp Business do cliente e o webhook de mensageria dispara na 1ª mensagem,
-que cai na aba **Conversas** (fonte principal de leads deste dashboard). O
-critério de qualificação (MQL) é <<PREENCHER: critério de MQL do cliente, ex.
-"o lead ser médico">> — se qualificado, segue a conversa com o comercial até a
-venda (registrada na aba de Compradores e cruzada de volta ao anúncio por telefone).
+**Funil de lançamento pago (Rogério — Workshop 13 Salário)** — lançamento pago de
+ingresso de evento. **Não há etapa de lead/MQL: a compra do ingresso É a conversão.**
+O anúncio no Meta Ads leva a uma página de vendas; o lead vai direto para o checkout
+e compra. O funil é curto:
 
 ```
-Impressões → Cliques/abertura do WhatsApp → Leads → MQLs → Vendas → Faturamento
+Investimento → Impressões → Cliques → Visitas à Página → Compras → Faturamento
 ```
 
-- **MQL** = coluna de qualificação (<<PREENCHER: nome da coluna de MQL>>) == "Sim" (ver `build.py` → `is_medico`).
-- **Agendamento** = o lead qualificado marcou horário de reunião com o comercial.
-- **Reunião Realizada** = a reunião de fato aconteceu (o lead compareceu). O
-  inverso disso é o **No‑Show** (agendou e não compareceu) — a métrica de alerta
-  mais importante entre Agendamento e Venda.
+- **Compra** = linha da aba de Compradores (**Wks 13º Salario**) com **UTM preenchido**
+  (checkout vindo do anúncio). Compras "direct"/orgânicas ficam fora do dashboard.
+- **Visita à Página** = Landing Page View do Meta Ads.
+- **Atribuição por anúncio** = `utm_content` da compra bate com o `Ad Name` do Meta
+  (AD01…AD06); campanha/conjunto vêm da estrutura real do Meta para aquele anúncio.
+- Métrica de qualidade por anúncio = **Custo/Visita (CPV)** e **CAC**.
 
-> **Estado atual dos dados:** enquanto só houver mídia paga × Leads, o funil
-> vai até **MQL**. As etapas seguintes (Agendamentos, Reuniões Realizadas, Vendas,
-> Faturamento) e as métricas derivadas aparecem como “-” até chegar a lista do
-> comercial/vendas. Quando os campos `agendamentos`/`reunioes`/`vendas`/
-> `fat` forem somados por linha em `buildAgg/daily/totals` (`build/app.js`),
-> **toda a UI acende sozinha** (funil, tabelas, Top/Piores).
+> **Estado atual dos dados:** o funil cobre todas as etapas (Investimento → Compras →
+> Faturamento). A etapa **Checkout** não tem evento no pixel, então aparece
+> implícita entre Visitas e Compras. As compras **sem UTM** (checkout "direct",
+> agente Hotmart etc.) não entram no dashboard — só o tráfego pago.
 
 ## Fórmulas fundamentais
 

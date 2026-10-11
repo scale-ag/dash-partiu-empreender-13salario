@@ -1,11 +1,13 @@
-# AGENTS.md — TEMPLATE de dashboard de captura de leads (High Ticket)
+# AGENTS.md — Dashboard de tráfego pago · Workshop 13 Salário (Rogério)
 
 > Contexto completo em **`CLAUDE.md`** (mesma pasta) — leia-o antes de mexer no
 > projeto. Este arquivo é um resumo para agentes/ferramentas que seguem a
 > convenção `AGENTS.md`.
 >
-> **Este é um TEMPLATE limpo.** Todos os valores do cliente estão como
-> `<<PREENCHER: descrição>>`.
+> ⚠️ **Instância configurada (não é o template genérico).** Funil de **lançamento
+> pago** (lead = compra do ingresso): sem Conversas, sem MQL, **duas planilhas**
+> (Meta Ads + Compradores), só compras **com UTM**. Fonte de verdade:
+> `build/build.py` → `process()`.
 
 ## ✅ CHECKLIST DE NOVO CLIENTE (fazer em ordem)
 
@@ -45,8 +47,9 @@
 coleta/redação dos Insights. Ver `GUIA-REPLICACAO.md` para os detalhes de
 implementação (filtro cruzado, engine de tabela, gráficos Chart.js).
 
-> `template.html` e `app.js` são engine, mas carregam o nome do cliente em pontos
-> pontuais (título/logo e um comentário) — já marcados como `<<PREENCHER>>`.
+> `template.html` e `app.js` são engine, mas carregam o nome do cliente e os
+> rótulos do funil de tráfego em pontos pontuais (título/logo, rótulos das etapas
+> e das tabelas) — já preenchidos para este cliente.
 
 ## Específico do cliente (troca a cada replicação)
 `build/build.py`, `build/identidade-visual.css` (cores, se aplicável),
