@@ -490,20 +490,21 @@ function comboChart(id, d){
         y1:{position:'right',ticks:{color:mut,font:{size:10}},grid:{display:false},beginAtZero:true,title:{display:true,text:'R$',color:mut,font:{size:10}}}}}
   });
 }
-function hbar(id, items, valFn, colorFn, top, unit){
+function hbar(id, items, valFn, colorFn, top, unit, valFmt){
   destroy(id); const el=document.getElementById(id); if(!el) return;
   unit=unit||'leads';
   let arr=items.slice().sort((a,b)=>valFn(b)-valFn(a)); if(top) arr=arr.slice(0,top);
-  const mut=cmuted();
+  const mut=cmuted(), fmt=valFmt||null;
   charts[id]=new Chart(el,{type:'bar', plugins:[barLabels],
-    data:{labels:arr.map(x=>x.label), datasets:[{label:unit,data:arr.map(valFn),backgroundColor:arr.map(colorFn||(()=>cvar('--chart-leads'))),borderRadius:3}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:28}},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>intf(c.raw)+' '+unit}}},
+    data:{labels:arr.map(x=>x.label), datasets:[{label:unit,data:arr.map(valFn),backgroundColor:arr.map(colorFn||(()=>cvar('--chart-leads'))),borderRadius:3,_fmt:fmt}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:36}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt?fmt(c.raw):(intf(c.raw)+' '+unit)}}},
       scales:{x:{beginAtZero:true,ticks:{color:mut,precision:0,font:{size:10}},grid:{color:cgrid()}},
               y:{ticks:{color:mut,font:{size:10}},grid:{display:false}}}}});
 }
 const barLabels={id:'barLabels',afterDatasetsDraw(ch){const{ctx}=ch;ctx.save();ctx.font='600 11px Segoe UI,system-ui';ctx.fillStyle=cmuted();ctx.textBaseline='middle';
-  ch.getDatasetMeta(0).data.forEach((el,i)=>{const v=ch.data.datasets[0].data[i]; if(!v)return; ctx.fillText(intf(v),el.x+5,el.y);});ctx.restore();}};
+  const f=ch.data.datasets[0]._fmt;
+  ch.getDatasetMeta(0).data.forEach((el,i)=>{const v=ch.data.datasets[0].data[i]; if(!v)return; ctx.fillText(f?f(v):intf(v),el.x+5,el.y);});ctx.restore();}};
 function lineChart(id, d){
   destroy(id); const el=document.getElementById(id); if(!el) return;
   const labels=d.map(x=>x.d.slice(5)), mut=cmuted();
@@ -622,13 +623,19 @@ function renderGeralCore(ids){
   // melhor dia por nº de compras
   let bestDay=null; dd.forEach(x=>{ if(bestDay==null||x.vendas>bestDay.v) bestDay={d:x.d,v:x.vendas}; });
   const adShort=s=>{ s=String(s||'—'); return s.length>22?s.slice(0,21)+'…':s; };
+  const hasChk=t.chk>0;
+  const chkCompra=(hasChk&&s.vendas!=null)?s.vendas/t.chk:null;   // checkout → compra
   const k2=[
     {label:'Compras no período',val:s.vendas!=null?intf(s.vendas):'-',aux:numf(t.vendas/nDays)+' /dia'},
     {label:'CAC médio',val:s.cac!=null?brl(s.cac):'-',aux:'Investimento ÷ Compras'},
     {label:'Ticket médio',val:s.tm!=null?brl(s.tm):'-',aux:'Faturamento ÷ Compras'},
     {label:'ROAS',val:s.roas!=null?numf(s.roas)+'×':'-',aux:'Faturamento ÷ Investimento'},
+    {label:'CPM',val:brl(dv.cpm),aux:intf(t.im)+' impressões'},
     {label:'CPC médio',val:brl(dv.cpc),aux:pct(dv.ctr)+' de CTR'},
     {label:'Custo por Visita',val:brl(dv.cpv),aux:pct(dv.cr)+' clique→visita'},
+    {label:'Checkouts no período',val:hasChk?intf(t.chk):'-',aux:hasChk?numf(t.chk/nDays)+' /dia':'add. coluna no Meta'},
+    {label:'Custo por Checkout',val:dv.cpck!=null?brl(dv.cpck):'-',aux:hasChk?pct(dv.vischk)+' visita→checkout':'Initiate Checkout'},
+    {label:'Checkout → Compra',val:chkCompra!=null?pct(chkCompra):'-',aux:'Compras ÷ Checkouts'},
     {label:'Visitas por dia',val:numf(t.pv/nDays),aux:intf(t.pv)+' visitas no total'},
     {label:'Melhor anúncio (compras)',val:topAd&&topAd.m?intf(topAd.m):'-',aux:topAd&&topAd.m?adShort(topAd.ad):'—'},
   ];
@@ -986,14 +993,23 @@ function renderMeta(){
   // Compilado dos Anúncios (ordena por mais compras; empate pelo menor Custo/Visita)
   const adAggM=buildAgg(fL,fM,fS,'ad');
   const topCacRows=Object.entries(adAggM).map(([ad,a])=>{const d=derive(a),s=salesOf(a);
-    return {k:ad, cells:{dim:ad,pv:a.pv,cpv:d.cpv,vendas:s.vendas,cac:s.cac,fat:s.fat,roas:s.roas},
+    return {k:ad, cells:{dim:ad,pv:a.pv,cpv:d.cpv,chk:a.chk,cpck:d.cpck,vendas:s.vendas,cac:s.cac,fat:s.fat,roas:s.roas},
       _ord:(-(s.vendas||0)*1e6)+(d.cpv==null?1e9:d.cpv)};})
     .sort((a,b)=>a._ord-b._ord).slice(0,10);
   renderTable({id:'mTopCac', center:true,
     cols:[{key:'dim',label:'Anúncios',type:'dim',big:true},{key:'pv',label:'Visitas',type:'int'},
-      {key:'cpv',label:'Custo/Vis',type:'brl'},{key:'vendas',label:'Compras',type:'int'},
-      {key:'cac',label:'CAC',type:'brl'},{key:'fat',label:'Fat.',type:'brl'},{key:'roas',label:'ROAS',type:'num'}],
+      {key:'cpv',label:'Custo/Vis',type:'brl'},{key:'chk',label:'Checkout',type:'int'},{key:'cpck',label:'Custo/Chk',type:'brl'},
+      {key:'vendas',label:'Compras',type:'int'},{key:'cac',label:'CAC',type:'brl'},{key:'fat',label:'Fat.',type:'brl'},{key:'roas',label:'ROAS',type:'num'}],
     rows:topCacRows});
+
+  // Checkout por anúncio (Initiate Checkout do Meta) — 3 visões (vazias até a coluna existir)
+  const adEntries=Object.entries(adAggM);
+  const chkAd=adEntries.map(([ad,a])=>({label:ad, v:a.chk||0}));
+  hbar('mChkAd', chkAd, x=>x.v, ()=>cvar('--chart-mqls'), 10, 'checkouts');
+  const cpckAd=adEntries.map(([ad,a])=>({label:ad, v:derive(a).cpck})).filter(x=>x.v!=null);
+  hbar('mCpckAd', cpckAd, x=>x.v, ()=>cvar('--chart-cpmql'), 10, 'por checkout', brl);
+  const vcAd=adEntries.map(([ad,a])=>({label:ad, v:derive(a).vischk})).filter(x=>x.v!=null);
+  hbar('mVcAd', vcAd, x=>x.v, ()=>cvar('--chart-leads'), 10, 'visita→checkout', pct);
 
   const dl=daily(fL,fM,fS).slice().reverse();
   renderTable({id:'tDaily', cols:DAILY_COLS, center:true, fit:true,
