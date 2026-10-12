@@ -51,7 +51,7 @@ function derive(a){
   return {gasto:g, impr:a.im, clicks:a.cl, pv, chk, leads:a.leads, mqls:a.mqls,
     cpm:a.im?g/a.im*1000:null, ctr:a.im?a.cl/a.im:null, cpc:a.cl?g/a.cl:null,
     cr:a.cl?pv/a.cl:null, cpv:pv?g/pv:null,
-    convlp:pv?a.leads/pv:null, vischk:pv?chk/pv:null,
+    convlp:pv?a.leads/pv:null, vischk:pv?chk/pv:null, cpck:chk?g/chk:null,
     cpl:a.leads?g/a.leads:null, cpmql:a.mqls?g/a.mqls:null, tx:a.leads?a.mqls/a.leads:null};
 }
 /* --------- FUNIL: MQL → Venda (Vendas/Faturamento já ligados via build.py) ---------
@@ -445,13 +445,18 @@ function toggleSet(set,key,ctrl,others){
    Não há etapa de Lead/MQL (a compra É a conversão). */
 function trafficSteps(t,dv,s,NA){
   const g=dv.gasto;
-  const convVC = (t.pv && s.vendas!=null) ? s.vendas/t.pv : null;   // visita → compra
+  const hasChk = t.chk>0;
+  const convVisChk = (t.pv && hasChk) ? t.chk/t.pv : null;          // visita → checkout
+  const convChkCompra = (hasChk && s.vendas!=null) ? s.vendas/t.chk : null; // checkout → compra
+  const convVC = (t.pv && s.vendas!=null) ? s.vendas/t.pv : null;   // visita → compra (fallback)
   return [
     ['Investimento', brl(g), [], false, 'hl-gasto'],
     ['Impressões', intf(t.im), [['CPM',brl(dv.cpm)]]],
     ['Cliques', intf(t.cl), [['CTR',pct(dv.ctr)],['CPC',brl(dv.cpc)]]],
     ['Visitas à Página', intf(t.pv), [['Clique→Visita',pct(dv.cr)],['Custo/Visita',brl(dv.cpv)]], t.pv===0],
-    ['Compras', s.vendas!=null?intf(s.vendas):NA, [['Visita→Compra',convVC!=null?pct(convVC):NA],['CAC',s.cac!=null?brl(s.cac):NA]], s.vendas==null, 'hl-mql'],
+    // Checkout (Initiate Checkout do Meta) — "sem dado" até a coluna existir na planilha
+    ['Checkout', hasChk?intf(t.chk):NA, [['Visita→Checkout',convVisChk!=null?pct(convVisChk):NA],['Custo/Checkout',dv.cpck!=null?brl(dv.cpck):NA]], !hasChk],
+    ['Compras', s.vendas!=null?intf(s.vendas):NA, [[hasChk?'Checkout→Compra':'Visita→Compra',(hasChk?convChkCompra:convVC)!=null?pct(hasChk?convChkCompra:convVC):NA],['CAC',s.cac!=null?brl(s.cac):NA]], s.vendas==null, 'hl-mql'],
     ['Faturamento', s.fat!=null?brl(s.fat):NA, [['ROAS',s.roas!=null?numf(s.roas):NA],['Ticket Médio',s.tm!=null?brl(s.tm):NA]], s.fat==null, 'hl-fat'],
   ];
 }
@@ -936,6 +941,7 @@ const DAILY_COLS=[
   {key:'gasto',label:'Investim.',type:'brl',heat:'gasto'},{key:'cpm',label:'CPM',type:'brl'},
   {key:'ctr',label:'CTR',type:'pct'},{key:'cl',label:'Cliques',type:'int'},{key:'cpc',label:'CPC',type:'brl'},
   {key:'pv',label:'Visitas',type:'int',heat:'leads'},{key:'cr',label:'Clq→Vis',type:'pct'},{key:'cpv',label:'Custo/Vis',type:'brl'},
+  {key:'chk',label:'Checkout',type:'int',heat:'mqls'},{key:'cpck',label:'Custo/Chk',type:'brl'},
   {key:'vendas',label:'Compras',type:'int',heat:'vendas'},{key:'convlp',label:'Vis→Compra',type:'pct'},{key:'cac',label:'CAC',type:'brl'},
   {key:'fat',label:'Fat.',type:'brl'},{key:'roas',label:'ROAS',type:'num',heat:'roas'},
 ];
@@ -943,7 +949,7 @@ function dailyCells(x,d,isTotal){
   const s=salesOf(x);
   const visCompra=(x.pv&&s.vendas!=null)?s.vendas/x.pv:null;   // visita → compra
   return {date:isTotal?null:x.d, wd:isTotal?'':weekday(x.d), gasto:d.gasto, cpm:d.cpm, ctr:d.ctr,
-    cl:x.cl, cpc:d.cpc, pv:x.pv, cr:d.cr, cpv:d.cpv,
+    cl:x.cl, cpc:d.cpc, pv:x.pv, cr:d.cr, cpv:d.cpv, chk:x.chk, cpck:d.cpck,
     vendas:s.vendas, convlp:visCompra, cac:s.cac, fat:s.fat, roas:s.roas};
 }
 
@@ -1005,14 +1011,15 @@ function renderMeta(){
     {key:'cpm',label:'CPM',type:'brl'},{key:'ctr',label:'CTR',type:'pct'},
     {key:'cl',label:'Cliques',type:'int'},{key:'cpc',label:'CPC',type:'brl'},
     {key:'pv',label:'Visitas',type:'int'},{key:'cr',label:'Clq→Vis',type:'pct'},{key:'cpv',label:'Custo/Vis',type:'brl'},
+    {key:'chk',label:'Checkout',type:'int'},{key:'cpck',label:'Custo/Chk',type:'brl'},
     {key:'vendas',label:'Compras',type:'int'},{key:'convlp',label:'Vis→Compra',type:'pct'},{key:'cac',label:'CAC',type:'brl'},
     {key:'fat',label:'Fat.',type:'brl'},{key:'roas',label:'ROAS',type:'num'},
   ];
   const visCompra=a=>(a.pv&&a.vendas!=null)?a.vendas/a.pv:null;
   function hierRows(map){ return Object.entries(map).map(([k,a])=>{const d=derive(a),s=salesOf(a);
-    return {k, cells:{dim:k,gasto:d.gasto,cpm:d.cpm,ctr:d.ctr,cl:a.cl,cpc:d.cpc,pv:a.pv,cr:d.cr,cpv:d.cpv,
+    return {k, cells:{dim:k,gasto:d.gasto,cpm:d.cpm,ctr:d.ctr,cl:a.cl,cpc:d.cpc,pv:a.pv,cr:d.cr,cpv:d.cpv,chk:a.chk,cpck:d.cpck,
       vendas:s.vendas,convlp:visCompra(a),cac:s.cac,fat:s.fat,roas:s.roas}};}); }
-  function totRowOf(tt){const d=derive(tt),s=salesOf(tt);return{dim:null,gasto:d.gasto,cpm:d.cpm,ctr:d.ctr,cl:tt.cl,cpc:d.cpc,pv:tt.pv,cr:d.cr,cpv:d.cpv,
+  function totRowOf(tt){const d=derive(tt),s=salesOf(tt);return{dim:null,gasto:d.gasto,cpm:d.cpm,ctr:d.ctr,cl:tt.cl,cpc:d.cpc,pv:tt.pv,cr:d.cr,cpv:d.cpv,chk:tt.chk,cpck:d.cpck,
     vendas:s.vendas,convlp:visCompra(tt),cac:s.cac,fat:s.fat,roas:s.roas};}
   const Sc=metaScope('C'), Sa=metaScope('A'), Sd=metaScope('D');
   const aggC=buildAgg(Sc.fL,Sc.fM,Sc.fS,'camp'), aggA=buildAgg(Sa.fL,Sa.fM,Sa.fS,'adset'), aggD=buildAgg(Sd.fL,Sd.fM,Sd.fS,'ad');

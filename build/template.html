@@ -68,7 +68,7 @@
         <h2 class="sec-title">Funil de tráfego &amp; evolução diária</h2>
         <div class="grid funnel-grid">
           <div class="card"><div class="funnel" id="geralFunnel"></div>
-            <p class="note">Funil do lançamento pago: Investimento → Impressões → Cliques → Visitas à Página → Compras → Faturamento. Só entram as <b>compras com UTM</b> (vindas do anúncio); checkout "direct"/orgânico fica de fora.</p>
+            <p class="note">Funil do lançamento pago: Investimento → Impressões → Cliques → Visitas à Página → <b>Checkout</b> → Compras → Faturamento. A etapa <b>Checkout</b> usa a coluna <i>Initiate Checkout</i> do Meta Ads — aparece assim que essa coluna existir na planilha (até lá, "sem dado"). Só entram as <b>compras com UTM</b> (vindas do anúncio).</p>
           </div>
           <div class="panel">
             <div class="panel-chart"><h3>Evolução diária</h3><p class="hint">Compras (barras) · Investimento e CAC (linhas)</p><div class="chart-box"><canvas id="gCombo"></canvas></div></div>
@@ -94,7 +94,7 @@
         <h2 class="sec-title">Funil de tráfego pago (Meta Ads) &amp; combinação diária</h2>
         <div class="grid funnel-grid">
           <div class="card"><div class="funnel" id="metaFunnel"></div>
-            <p class="note">Visitas à Página = Landing Page Views do Meta. Compras atribuídas por <b>utm_content</b> (= Ad Name AD01…AD06). Checkout não tem evento no pixel, então a etapa fica entre Visitas e Compras.</p>
+            <p class="note">Visitas à Página = Landing Page Views do Meta. <b>Checkout</b> = coluna <i>Initiate Checkout</i> do Meta (mostra "sem dado" até a coluna existir na planilha). Compras atribuídas por <b>utm_content</b> (= Ad Name AD01…AD06).</p>
           </div>
           <div class="panel">
             <div class="panel-chart"><h3>Combinação diária</h3><p class="hint">Compras (barras) · Investimento e CAC (linhas)</p><div class="chart-box"><canvas id="mCombo"></canvas></div></div>
