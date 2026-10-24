@@ -37,6 +37,10 @@ campanha/conjunto vêm da estrutura real do Meta para aquele anúncio. Lógica e
 | **Meta Ads** — "Extração Dashboard" (`1OMB7k…`), aba **Página1** | `0` | investimento, impressões, cliques, visitas à página (LP Views) |
 | **Compradores** — "Partiu Empreender \| 2026" (`1Qe1_L…`), aba **Wks 13º Salario** | `1583208180` | compras do ingresso (Data, Valor, Forma de Pagto, utm_*) |
 
+| **Seguidores IG** — "Extração Dashboard" (`1OMB7k…`), aba **Seguidores IG** | `1003041051` | campanha de Atração de Seguidores: investimento, impressões, cliques, seguidores (col. H, manual) |
+
+Páginas: **Visão Geral** (consolidado das duas campanhas) · **Funil de Vendas / Tráfego Pago / Relatório** (captação de leads) · **Funil Captação de Seguidores**.
+
 O build lê as abas via **export CSV público** (`.../export?format=csv&gid=...`).
 **Nada é escrito de volta** nas planilhas.
 

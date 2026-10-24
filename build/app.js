@@ -27,7 +27,7 @@ const TODAY = B.today || B.date_max;
 const STATE = {
   page:'geral', from:(()=>{const [y,m]=TODAY.split('-'); return `${y}-${m}-01`;})(), to:TODAY, preset:'mes', tax:true,
   selDays:new Set(),
-  mSelC:new Set(), mSelA:new Set(), mSelAd:new Set(),
+  mSelC:new Set(), mSelA:new Set(), mSelAd:new Set(), sSel:new Set(),
   sort:{}, colw: JSON.parse(localStorage.getItem('dm_colw')||'{}'),
 };
 const taxf = ()=> STATE.tax ? TAX : 1;
@@ -497,7 +497,7 @@ function hbar(id, items, valFn, colorFn, top, unit, valFmt){
   const mut=cmuted(), fmt=valFmt||null;
   charts[id]=new Chart(el,{type:'bar', plugins:[barLabels],
     data:{labels:arr.map(x=>x.label), datasets:[{label:unit,data:arr.map(valFn),backgroundColor:arr.map(colorFn||(()=>cvar('--chart-leads'))),borderRadius:3,_fmt:fmt}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:36}},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:fmt?78:36}},
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt?fmt(c.raw):(intf(c.raw)+' '+unit)}}},
       scales:{x:{beginAtZero:true,ticks:{color:mut,precision:0,font:{size:10}},grid:{color:cgrid()}},
               y:{ticks:{color:mut,font:{size:10}},grid:{display:false}}}}});
@@ -1061,6 +1061,220 @@ function renderMeta(){
     rows:q.map((l,i)=>({k:'q'+i, cells:{d:l.d,nm:l.nm,bucket:l.bucket,plat:l.plat,ad:l.ad,camp:l.camp,val:l.val}}))});
 }
 
+/* =====================================================================
+   CAMPANHA DE SEGUIDORES (aba "Seguidores IG") + VISÃO GERAL CONSOLIDADA
+   ===================================================================== */
+const SEG = DATA.seg || [];
+const segActive = ()=> SEG.filter(g=>dateActive(g.d));
+/* filtro por criativo (clique na tabela de criativos; Ctrl = vários) */
+const segScope = ()=>{ const f=segActive(); return STATE.sSel.size ? f.filter(g=>STATE.sSel.has(g.ad)) : f; };
+function segTotals(fG){
+  const t={sp:0,im:0,cl:0,seg:0,days:0,daysZero:0,spZero:0};
+  fG.forEach(g=>{ t.sp+=g.sp; t.im+=g.im; t.cl+=g.cl; t.seg+=g.seg; });
+  const dd=segDaily(fG); t.days=dd.length;
+  dd.forEach(x=>{ if(x.seg<=0){ t.daysZero++; t.spZero+=x.sp; } });
+  return t;
+}
+function segDerive(a){
+  const g=a.sp*taxf();
+  return {gasto:g, cpm:a.im?g/a.im*1000:null, ctr:a.im?a.cl/a.im:null, cpc:a.cl?g/a.cl:null,
+    cps:a.seg>0?g/a.seg:null,              // custo por seguidor: "-" quando 0 seguidores
+    convs:a.cl?a.seg/a.cl:null,            // clique → seguidor
+    spm:a.im?a.seg/a.im*1000:null};        // seguidores por mil impressões
+}
+function segDaily(fG){
+  const m={}; fG.forEach(g=>{ const a=m[g.d]||(m[g.d]={d:g.d,sp:0,im:0,cl:0,seg:0});
+    a.sp+=g.sp; a.im+=g.im; a.cl+=g.cl; a.seg+=g.seg; });
+  return Object.values(m).sort((a,b)=>a.d<b.d?-1:1);
+}
+function segByAd(fG){
+  const m={}; fG.forEach(g=>{ const a=m[g.ad]||(m[g.ad]={ad:g.ad,adset:g.adset,sp:0,im:0,cl:0,seg:0,_days:{}});
+    a.sp+=g.sp; a.im+=g.im; a.cl+=g.cl; a.seg+=g.seg;
+    a._days[g.d]=(a._days[g.d]||0)+g.seg; });
+  Object.values(m).forEach(a=>{ const v=Object.values(a._days); a.days=v.length; a.daysZero=v.filter(x=>x<=0).length; });
+  return m;
+}
+const segChip=a=> a.seg>0 ? '<span class="rel-chip c-green">Trouxe seguidores</span>' : '<span class="rel-chip c-red">0 seguidores</span>';
+
+function segCombo(id, d){
+  destroy(id); const el=document.getElementById(id); if(!el) return;
+  const mut=cmuted(), gr=cgrid();
+  charts[id]=new Chart(el,{
+    data:{labels:d.map(x=>x.d.slice(5)), datasets:[
+      {type:'bar',label:'Seguidores',data:d.map(x=>x.seg),backgroundColor:cvar('--chart-mqls'),yAxisID:'y',borderRadius:3,order:3},
+      {type:'line',label:'Investimento',data:d.map(x=>+(x.sp*taxf()).toFixed(2)),borderColor:cvar('--chart-gasto'),backgroundColor:cvar('--chart-gasto'),yAxisID:'y1',borderWidth:2,pointRadius:2,tension:.25,order:1},
+      // dia com 0 seguidores = sem custo por seguidor (buraco na linha, nunca "infinito")
+      {type:'line',label:'Custo/Seguidor',data:d.map(x=>x.seg>0?+((x.sp*taxf())/x.seg).toFixed(2):null),borderColor:cvar('--chart-cpmql'),backgroundColor:cvar('--chart-cpmql'),yAxisID:'y1',borderWidth:2,pointRadius:3,spanGaps:false,tension:.25,order:0},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:cink(),boxWidth:10,usePointStyle:true,font:{size:11}}},
+        tooltip:{callbacks:{label:c=>{const v=c.raw; if(c.dataset.label==='Custo/Seguidor'&&v==null) return 'Custo/Seguidor: - (0 seguidores)';
+          return c.dataset.label+': '+(c.dataset.yAxisID==='y1'?brl(v):intf(v));}}}},
+      scales:{x:{ticks:{color:mut,font:{size:10}},grid:{display:false}},
+        y:{position:'left',ticks:{color:mut,font:{size:10},precision:0},grid:{color:gr},beginAtZero:true,title:{display:true,text:'Seguidores',color:mut,font:{size:10}}},
+        y1:{position:'right',ticks:{color:mut,font:{size:10}},grid:{display:false},beginAtZero:true,title:{display:true,text:'R$',color:mut,font:{size:10}}}}}
+  });
+}
+
+/* ---------------- PAGE: Funil Captação de Seguidores ---------------- */
+function renderSeg(){
+  const fAll=segActive(), fG=segScope();
+  const t=segTotals(fG), dv=segDerive(t);
+  const NA='<span class="na-tag">sem dado</span>';
+  const steps=[
+    ['Investimento', brl(dv.gasto), [], false, 'hl-gasto'],
+    ['Impressões', intf(t.im), [['CPM',brl(dv.cpm)]]],
+    ['Cliques', intf(t.cl), [['CTR',pct(dv.ctr)],['CPC',brl(dv.cpc)]]],
+    ['Seguidores', intf(t.seg), [['Clique→Seguidor',dv.convs!=null?pct(dv.convs):NA],['Custo/Seguidor',dv.cps!=null?brl(dv.cps):NA]], false, 'hl-mql'],
+  ];
+  document.getElementById('segFunnel').innerHTML=funnelHTML(steps);
+  const dd=segDaily(fG), nDays=dd.length||1;
+  const ads=Object.values(segByAd(fG));
+  const comSeg=ads.filter(a=>a.seg>0), semSeg=ads.filter(a=>a.sp>0&&a.seg<=0);
+  let best=null; comSeg.forEach(a=>{ const c=(a.sp*taxf())/a.seg; if(!best||c<best.v) best={ad:a.ad,v:c}; });
+  let top=null; comSeg.forEach(a=>{ if(!top||a.seg>top.seg) top=a; });
+  const spSem=semSeg.reduce((s,a)=>s+a.sp,0)*taxf();
+  const k=[
+    {label:'Seguidores no período',val:intf(t.seg),aux:numf(t.seg/nDays)+' /dia'},
+    {label:'Custo por Seguidor',val:dv.cps!=null?brl(dv.cps):'-',aux:'Investimento ÷ Seguidores'},
+    {label:'Seguidores por mil impr.',val:dv.spm!=null?numf(dv.spm):'-',aux:intf(t.im)+' impressões'},
+    {label:'Clique → Seguidor',val:dv.convs!=null?pct(dv.convs):'-',aux:intf(t.cl)+' cliques'},
+    {label:'Dias com 0 seguidores',val:intf(t.daysZero)+' de '+intf(t.days),aux:brl(t.spZero*taxf())+' investidos nesses dias'},
+    {label:'Criativos sem seguidor',val:intf(semSeg.length)+' de '+intf(ads.length),aux:brl(spSem)+' investidos neles'},
+    {label:'Melhor criativo (custo)',val:best?brl(best.v):'-',aux:best?best.ad:'—'},
+    {label:'Criativo com mais seguidores',val:top?intf(top.seg):'-',aux:top?top.ad:'—'},
+  ];
+  document.getElementById('segKpis').innerHTML=k.map(kpiCard).join('');
+  segCombo('segCombo', dd);
+
+  // tabela diária (último dia no topo)
+  const dCols=[
+    {key:'date',label:'Data',type:'date'},{key:'wd',label:'Dia',type:'dim',w:70},
+    {key:'gasto',label:'Investim.',type:'brl',heat:'gasto'},{key:'im',label:'Impr.',type:'int'},{key:'cpm',label:'CPM',type:'brl'},
+    {key:'ctr',label:'CTR',type:'pct'},{key:'cl',label:'Cliques',type:'int'},{key:'cpc',label:'CPC',type:'brl'},
+    {key:'seg',label:'Seguidores',type:'int',heat:'mqls'},{key:'convs',label:'Clq→Seg',type:'pct'},{key:'cps',label:'Custo/Seg',type:'brl'},
+  ];
+  const cellsOf=(x,isT)=>{const d=segDerive(x); return {date:isT?null:x.d, wd:isT?'':weekday(x.d), gasto:d.gasto, im:x.im, cpm:d.cpm, ctr:d.ctr, cl:x.cl, cpc:d.cpc, seg:x.seg, convs:d.convs, cps:d.cps};};
+  renderTable({id:'segDaily', cols:dCols, center:true, fit:true,
+    rows:dd.slice().reverse().map(x=>({k:x.d, cells:cellsOf(x)})), total:cellsOf(t,true),
+    selectable:true, selSet:STATE.selDays,
+    onSelect:(kk,e)=>{ toggleSet(STATE.selDays,kk,e&&(e.ctrlKey||e.metaKey)); syncDateInputs(); renderAll(); }});
+
+  // tabela por criativo — usa TODOS os criativos do período (não some ao filtrar), destaca os selecionados
+  const adsAll=Object.values(segByAd(fAll)).sort((a,b)=>(b.seg-a.seg)||(b.sp-a.sp));
+  const cCols=[
+    {key:'ad',label:'Criativo',type:'dim',big:true},{key:'st',label:'Status',type:'html',w:150},
+    {key:'gasto',label:'Investim.',type:'brl',heat:'gasto'},{key:'im',label:'Impr.',type:'int'},{key:'cpm',label:'CPM',type:'brl'},
+    {key:'ctr',label:'CTR',type:'pct'},{key:'cl',label:'Cliques',type:'int'},{key:'cpc',label:'CPC',type:'brl'},
+    {key:'seg',label:'Seguidores',type:'int',heat:'mqls'},{key:'convs',label:'Clq→Seg',type:'pct'},{key:'cps',label:'Custo/Seg',type:'brl'},
+    {key:'days',label:'Dias ativos',type:'int'},{key:'dz',label:'Dias c/ 0 seg.',type:'int'},
+  ];
+  const tAll=segTotals(fAll);
+  renderTable({id:'segCreat', cols:cCols, center:true,
+    rows:adsAll.map(a=>{const d=segDerive(a); return {k:a.ad, cells:{ad:a.ad, st:segChip(a), gasto:d.gasto, im:a.im, cpm:d.cpm, ctr:d.ctr, cl:a.cl, cpc:d.cpc,
+      seg:a.seg, convs:d.convs, cps:d.cps, days:a.days, dz:a.daysZero}};}),
+    total:(()=>{const d=segDerive(tAll); return {ad:null, st:'', gasto:d.gasto, im:tAll.im, cpm:d.cpm, ctr:d.ctr, cl:tAll.cl, cpc:d.cpc, seg:tAll.seg, convs:d.convs, cps:d.cps, days:tAll.days, dz:tAll.daysZero};})(),
+    selectable:true, selSet:STATE.sSel,
+    onSelect:(kk,e)=>{ toggleSet(STATE.sSel,kk,e&&(e.ctrlKey||e.metaKey)); renderSeg(); }});
+
+  // gráficos por criativo
+  hbar('segByCr', ads.map(a=>({label:a.ad, v:a.seg})), x=>x.v, x=>x.v>0?cvar('--chart-mqls'):cvar('--bar-noq'), 10, 'seguidores');
+  hbar('segCpsCr', comSeg.map(a=>({label:a.ad, v:(a.sp*taxf())/a.seg})), x=>x.v, ()=>cvar('--chart-cpmql'), 10, 'por seguidor', brl);
+  hbar('segSpCr', ads.filter(a=>a.sp>0).map(a=>({label:a.ad, v:a.sp*taxf(), z:a.seg<=0})), x=>x.v, x=>x.z?cvar('--bad'):cvar('--chart-leads'), 10, 'investido', brl);
+  const sel=document.getElementById('segSelNote');
+  if(sel) sel.textContent = STATE.sSel.size ? ('Filtrando: '+[...STATE.sSel].join(', ')+' — clique de novo para limpar.') : '';
+}
+
+/* ---------------- PAGE: Visão Geral (consolidado: vendas + seguidores) ---------------- */
+function donutSplit(id, vals, labels, colors, centerId, centerTxt){
+  destroy(id); const el=document.getElementById(id); if(!el) return;
+  const tot=vals.reduce((a,b)=>a+b,0);
+  charts[id]=new Chart(el,{type:'doughnut',
+    data:{labels, datasets:[{data:vals, backgroundColor:colors, borderColor:cvar('--surface'), borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'68%',
+      plugins:{legend:{display:true,position:'bottom',labels:{color:cink(),boxWidth:10,usePointStyle:true,font:{size:11}}},
+        tooltip:{callbacks:{label:c=>c.label+': '+brl(c.raw)+(tot?' ('+pct(c.raw/tot)+')':'')}}}}});
+  const c=document.getElementById(centerId); if(c) c.textContent=centerTxt;
+}
+function consolCombo(id, d){
+  destroy(id); const el=document.getElementById(id); if(!el) return;
+  const mut=cmuted(), gr=cgrid();
+  charts[id]=new Chart(el,{
+    data:{labels:d.map(x=>x.d.slice(5)), datasets:[
+      {type:'bar',label:'Invest. Vendas',data:d.map(x=>+(x.spV*taxf()).toFixed(2)),backgroundColor:cvar('--chart-gasto'),yAxisID:'y1',stack:'sp',borderRadius:2,order:3},
+      {type:'bar',label:'Invest. Seguidores',data:d.map(x=>+(x.spS*taxf()).toFixed(2)),backgroundColor:cvar('--chart-cpmql'),yAxisID:'y1',stack:'sp',borderRadius:2,order:3},
+      {type:'line',label:'Compras',data:d.map(x=>x.vendas),borderColor:cvar('--good'),backgroundColor:cvar('--good'),yAxisID:'y',borderWidth:2,pointRadius:2,tension:.25,order:0},
+      {type:'line',label:'Seguidores',data:d.map(x=>x.seg),borderColor:cvar('--chart-mqls'),backgroundColor:cvar('--chart-mqls'),yAxisID:'y',borderWidth:2,pointRadius:2,tension:.25,order:0},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:cink(),boxWidth:10,usePointStyle:true,font:{size:11}}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.dataset.yAxisID==='y1'?brl(c.raw):intf(c.raw))}}},
+      scales:{x:{stacked:true,ticks:{color:mut,font:{size:10}},grid:{display:false}},
+        y1:{position:'left',stacked:true,ticks:{color:mut,font:{size:10}},grid:{color:gr},beginAtZero:true,title:{display:true,text:'R$ investido',color:mut,font:{size:10}}},
+        y:{position:'right',ticks:{color:mut,font:{size:10},precision:0},grid:{display:false},beginAtZero:true,title:{display:true,text:'Compras / Seguidores',color:mut,font:{size:10}}}}}
+  });
+}
+function renderConsol(){
+  const fM=metaActive(), fS=salesActive(), fG=segActive();
+  const spV=fM.reduce((s,m)=>s+m.sp,0), spS=fG.reduce((s,g)=>s+g.sp,0);
+  const gV=spV*taxf(), gS=spS*taxf(), gT=gV+gS;
+  const im=fM.reduce((s,m)=>s+m.im,0)+fG.reduce((s,g)=>s+g.im,0);
+  const cl=fM.reduce((s,m)=>s+m.cl,0)+fG.reduce((s,g)=>s+g.cl,0);
+  const vendas=fS.reduce((s,x)=>s+(x.vendas||0),0), fat=fS.reduce((s,x)=>s+(x.fat||0),0);
+  const seg=fG.reduce((s,g)=>s+g.seg,0);
+  const k=[
+    {label:'Investimento total',val:brl(gT),aux:'Vendas + Seguidores',hero:true},
+    {label:'Invest. Captação de Leads',val:brl(gV),aux:gT?pct(gV/gT)+' do total':'-'},
+    {label:'Invest. Captação de Seguidores',val:brl(gS),aux:gT?pct(gS/gT)+' do total':'-'},
+    {label:'Impressões',val:intf(im),aux:'CPM '+brl(im?gT/im*1000:null)},
+    {label:'Cliques',val:intf(cl),aux:'CTR '+pct(im?cl/im:null)+' · CPC '+brl(cl?gT/cl:null)},
+    {label:'Compras',val:intf(vendas),aux:'CAC '+brl(vendas?gV/vendas:null)},
+    {label:'Faturamento',val:brl(fat),aux:'Ticket '+brl(vendas?fat/vendas:null)},
+    {label:'ROAS geral',val:gT?numf(fat/gT)+'×':'-',aux:'Faturamento ÷ investimento total'},
+    {label:'ROAS da campanha de vendas',val:gV?numf(fat/gV)+'×':'-',aux:'Faturamento ÷ invest. leads'},
+    {label:'Seguidores',val:intf(seg),aux:'Custo/seg. '+(seg>0?brl(gS/seg):'-')},
+  ];
+  document.getElementById('consolKpis').innerHTML=k.map(kpiCard).join('');
+  donutSplit('consolSplit',[gV,gS],['Captação de Leads (vendas)','Captação de Seguidores'],[cvar('--chart-gasto'),cvar('--chart-cpmql')],'consolSplitTot',brl(gT));
+
+  // diário consolidado
+  const days={}; const g=d=>days[d]||(days[d]={d,spV:0,spS:0,im:0,cl:0,vendas:0,fat:0,seg:0});
+  fM.forEach(m=>{ if(!m.d)return; const a=g(m.d); a.spV+=m.sp; a.im+=m.im; a.cl+=m.cl; });
+  fG.forEach(x=>{ const a=g(x.d); a.spS+=x.sp; a.im+=x.im; a.cl+=x.cl; a.seg+=x.seg; });
+  fS.forEach(x=>{ if(!x.d)return; const a=g(x.d); a.vendas+=x.vendas||0; a.fat+=x.fat||0; });
+  const dd=Object.values(days).sort((a,b)=>a.d<b.d?-1:1);
+  consolCombo('consolCombo', dd);
+  const cells=(x,isT)=>{const v=x.spV*taxf(), s=x.spS*taxf(), tt=v+s; return {date:isT?null:x.d, wd:isT?'':weekday(x.d),
+    gt:tt, gv:v, gs:s, im:x.im, cl:x.cl, ctr:x.im?x.cl/x.im:null, vendas:x.vendas, cac:x.vendas?v/x.vendas:null, fat:x.fat,
+    roas:tt?x.fat/tt:null, seg:x.seg, cps:x.seg>0?s/x.seg:null};};
+  const tot={spV, spS, im, cl, vendas, fat, seg};
+  renderTable({id:'consolDaily', center:true, fit:true,
+    cols:[{key:'date',label:'Data',type:'date'},{key:'wd',label:'Dia',type:'dim',w:70},
+      {key:'gt',label:'Invest. Total',type:'brl',heat:'gasto'},{key:'gv',label:'Inv. Leads',type:'brl'},{key:'gs',label:'Inv. Seguid.',type:'brl'},
+      {key:'im',label:'Impr.',type:'int'},{key:'cl',label:'Cliques',type:'int'},{key:'ctr',label:'CTR',type:'pct'},
+      {key:'vendas',label:'Compras',type:'int',heat:'vendas'},{key:'cac',label:'CAC',type:'brl'},{key:'fat',label:'Fat.',type:'brl'},
+      {key:'roas',label:'ROAS geral',type:'num',heat:'roas'},{key:'seg',label:'Seguidores',type:'int',heat:'mqls'},{key:'cps',label:'Custo/Seg',type:'brl'}],
+    rows:dd.slice().reverse().map(x=>({k:x.d, cells:cells(x)})), total:cells(tot,true),
+    selectable:true, selSet:STATE.selDays,
+    onSelect:(kk,e)=>{ toggleSet(STATE.selDays,kk,e&&(e.ctrlKey||e.metaKey)); syncDateInputs(); renderAll(); }});
+
+  // por campanha
+  const campRows=[];
+  const byCamp=(arr,kind)=>{ const m={}; arr.forEach(x=>{ const a=m[x.camp]||(m[x.camp]={camp:x.camp,kind,sp:0,im:0,cl:0,res:0,fat:0}); a.sp+=x.sp; a.im+=x.im; a.cl+=x.cl; if(kind==='seg') a.res+=x.seg; }); return m; };
+  const mV=byCamp(fM,'vendas'), mS=byCamp(fG,'seg');
+  fS.forEach(x=>{ const a=mV[x.camp]; if(a){ a.res+=x.vendas||0; a.fat+=x.fat||0; } });
+  [...Object.values(mV),...Object.values(mS)].forEach(a=>{ const gg=a.sp*taxf();
+    campRows.push({k:a.camp, cells:{camp:a.camp, obj:a.kind==='seg'?'Captação de Seguidores':'Captação de Leads (vendas)', gasto:gg, share:gT?gg/gT:null,
+      im:a.im, ctr:a.im?a.cl/a.im:null, cl:a.cl, cpc:a.cl?gg/a.cl:null, res:a.res, rlab:a.kind==='seg'?'seguidores':'compras',
+      cpr:a.res>0?gg/a.res:null, roas:a.kind==='seg'?null:(gg?a.fat/gg:null)}}); });
+  renderTable({id:'consolCamp', center:true,
+    cols:[{key:'camp',label:'Campanha',type:'dim',big:true},{key:'obj',label:'Objetivo',type:'dim'},
+      {key:'gasto',label:'Investim.',type:'brl'},{key:'share',label:'% do invest.',type:'pct'},{key:'im',label:'Impr.',type:'int'},
+      {key:'ctr',label:'CTR',type:'pct'},{key:'cl',label:'Cliques',type:'int'},{key:'cpc',label:'CPC',type:'brl'},
+      {key:'res',label:'Resultado',type:'int'},{key:'rlab',label:'Tipo',type:'dim',w:100},{key:'cpr',label:'Custo/Resultado',type:'brl'},{key:'roas',label:'ROAS',type:'num'}],
+    rows:campRows.sort((a,b)=>b.cells.gasto-a.cells.gasto)});
+}
+
 /* ---------------- date presets ---------------- */
 const PRESETS=[
   ['hoje','Hoje',()=>[TODAY,TODAY]],
@@ -1150,17 +1364,17 @@ function ppApply(){
 }
 
 /* ---------------- navigation & boot ---------------- */
-function setPage(p){ STATE.page=p;
+const PAGES={consol:'Visão Geral', vendas:'Funil de Vendas (Captação de Leads)', meta:'Tráfego Pago · Leads (Meta Ads)', seg:'Funil Captação de Seguidores', rel:'Relatório'};
+function setPage(p){ if(!PAGES[p]) p='consol'; STATE.page=p;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===p));
-  document.getElementById('page-geral').classList.toggle('active',p==='geral');
-  document.getElementById('page-meta').classList.toggle('active',p==='meta');
-  document.getElementById('page-rel').classList.toggle('active',p==='rel');
-  document.getElementById('ptitle').textContent = p==='meta'?'Tráfego Pago (Meta Ads)':(p==='rel'?'Relatório':'Visão Geral');
+  Object.keys(PAGES).forEach(k=>{ const el=document.getElementById('page-'+k); if(el) el.classList.toggle('active',k===p); });
+  document.getElementById('ptitle').textContent = PAGES[p];
   document.getElementById('navToggle').checked=false;
-  history.replaceState(null,'', p==='meta'?'#meta':(p==='rel'?'#rel':'#geral'));
+  history.replaceState(null,'','#'+p);
   renderAll();
 }
-function renderAll(){ if(STATE.page==='meta') renderMeta(); else if(STATE.page==='rel') renderRelatorio(); else renderGeral(); }
+function renderAll(){ const p=STATE.page;
+  if(p==='meta') renderMeta(); else if(p==='rel') renderRelatorio(); else if(p==='seg') renderSeg(); else if(p==='vendas') renderGeral(); else renderConsol(); }
 
 function applyTheme(){ const t=localStorage.getItem('dm_theme'); if(t==='light') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme','dark'); }
 applyTheme();
@@ -1175,7 +1389,7 @@ document.getElementById('ppCancel').addEventListener('click',ppClose);
 document.getElementById('periodPop').addEventListener('click',e=>e.stopPropagation());
 document.addEventListener('click',()=>{ if(ppIsOpen()) ppClose(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&ppIsOpen()) ppClose(); });
-document.getElementById('clearBtn').addEventListener('click',()=>{ STATE.mSelC.clear();STATE.mSelA.clear();STATE.mSelAd.clear();STATE.selDays.clear(); applyPreset('mes'); });
+document.getElementById('clearBtn').addEventListener('click',()=>{ STATE.mSelC.clear();STATE.mSelA.clear();STATE.mSelAd.clear();STATE.sSel.clear();STATE.selDays.clear(); applyPreset('mes'); });
 document.getElementById('refreshBtn').addEventListener('click',function(){ this.classList.add('loading'); location.href=location.pathname+'?t='+Date.now()+location.hash; });
 
 /* painel de Metas & parâmetros — edita ao vivo, salva em localStorage e recolore
@@ -1202,7 +1416,7 @@ document.getElementById('buildFoot').textContent='build __BUILD_ID__';
 document.getElementById('buildFoot2').textContent='· build __BUILD_ID__';
 
 syncDateInputs();
-setPage(location.hash==='#meta'?'meta':(location.hash==='#rel'?'rel':'geral'));
+setPage((location.hash||'#consol').slice(1)==='geral'?'vendas':(location.hash||'#consol').slice(1));
 
 /* auto-refresh com cache-bust ~30 min */
 setTimeout(()=>{ location.href=location.pathname+'?t='+Date.now()+location.hash; }, 30*60*1000);

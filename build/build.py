@@ -47,6 +47,7 @@ from datetime import datetime, timezone, timedelta
 # Duas planilhas DISTINTAS (Meta Ads e Compradores ficam em arquivos separados).
 SPREADSHEET_ID_META  = "1OMB7kekfxCioZZE6Tm2c317m7-FLFjFKcgjR1rMkdWE"  # "Extração Dashboard"
 GID_META  = "0"            # aba "Página1" (Meta Ads: Day/Campaign/Ad Set/Ad/Impr/Clicks/LP Views/Spent)
+GID_SEG   = "1003041051"   # aba "Seguidores IG" (mesma planilha): campanha de Atração de Seguidores
 SPREADSHEET_ID_SALES = "1Qe1_LFcrd98hhOTa5rJAL78ZRUoHCZ-Pj4kIRgdiljI"  # "Partiu Empreender | 2026"
 GID_SALES = "1583208180"   # aba "Wks 13º Salario" (Compradores: Data/Nome/Valor da Compra/Forma de Pagto/utm_*)
 EXPORT_URL = "https://docs.google.com/spreadsheets/d/{sid}/export?format=csv&gid={gid}"
@@ -279,7 +280,50 @@ def placement_label(v):
     return "Outros"
 
 
-def process(meta_rows, sales_rows):
+def process_seguidores(seg_rows):
+    """Aba "Seguidores IG" (campanha de Atração de Seguidores, mesma planilha do Meta).
+    Colunas: Day · Campaign Name · Ad Set Name · Ad Set ID · Impressions ·
+    Amount Spent · Link Clicks · Seguidores (H) · Custo por Seguidor (I).
+    Seguidores é preenchido à mão: célula VAZIA conta como 0 seguidores naquele
+    dia/criativo (o gasto continua contando). O custo por seguidor NÃO é lido da
+    coluna I — é recalculado como gasto ÷ seguidores, para somar certo em qualquer
+    período (e dar "-" quando o período/criativo teve 0 seguidores).
+    O criativo é o último trecho do Ad Set Name ("... | Reels07" -> "Reels07")."""
+    if not seg_rows:
+        return []
+    idx = header_index(
+        seg_rows[0],
+        {"day": ["day", "data"], "campaign": ["campaign name", "campaign"],
+         "adset": ["ad set name"], "impr": ["impressions"], "spent": ["amount spent", "valor gasto"],
+         "clicks": ["link clicks", "cliques"], "seg": ["seguidores"]},
+        {"day": 0, "campaign": 1, "adset": 2, "impr": 4, "spent": 5, "clicks": 6, "seg": 7},
+    )
+    out = []
+    for row in seg_rows[1:]:
+        if not any((c or "").strip() for c in row):
+            continue
+        d = parse_date(cell(row, idx["day"]))
+        if not d:
+            continue
+        adset = cell(row, idx["adset"]) or "(sem conjunto)"
+        creative = adset.split("|")[-1].strip() or adset
+        seg_raw = cell(row, idx["seg"])
+        out.append({
+            "d": d,
+            "camp": cell(row, idx["campaign"]) or "(sem campanha)",
+            "adset": adset,
+            "ad": creative,
+            "sp": round(to_float(cell(row, idx["spent"])), 4),
+            "im": to_float(cell(row, idx["impr"])),
+            "cl": to_float(cell(row, idx["clicks"])),
+            "seg": to_float(seg_raw),
+            "inf": 1 if seg_raw else 0,   # 1 = célula preenchida na planilha
+        })
+    return out
+
+
+def process(meta_rows, sales_rows, seg_rows=None):
+    seg = process_seguidores(seg_rows)
     # ---- Meta Ads (investimento / impressões / cliques / visitas à página) ----
     mheader = meta_rows[0] if meta_rows else []
     midx = header_index(
@@ -385,6 +429,7 @@ def process(meta_rows, sales_rows):
 
     dates = sorted({d for d in (
         [l["d"] for l in leads if l["d"]] + [m["d"] for m in meta if m["d"]] + [s["d"] for s in sales if s["d"]]
+        + [g["d"] for g in seg if g["d"]]
     )})
     now_brt = datetime.now(BRT)
     return {
@@ -408,6 +453,8 @@ def process(meta_rows, sales_rows):
         "leads": leads,
         "meta": meta,
         "sales": sales,
+        # Campanha de Atração de Seguidores (aba "Seguidores IG").
+        "seg": seg,
         # Anúncio -> permalink do criativo (aba Relatório).
         "ad_links": ad_links,
         # Insights de Tráfego (texto pré-escrito, lido de relatorios.json). Preenchido
@@ -466,6 +513,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--meta-file", help="CSV local da aba Meta Ads (Página1)")
     ap.add_argument("--sales-file", help="CSV local da aba Compradores (Wks 13º Salario)")
+    ap.add_argument("--seg-file", help="CSV local da aba Seguidores IG")
     ap.add_argument("--template", default="build/template.html")
     ap.add_argument("--out", default="dist/index.html")
     args = ap.parse_args()
@@ -473,7 +521,9 @@ def main():
     meta_rows = load_rows(EXPORT_URL.format(sid=SPREADSHEET_ID_META, gid=GID_META), args.meta_file)
     sales_rows = load_rows(EXPORT_URL.format(sid=SPREADSHEET_ID_SALES, gid=GID_SALES), args.sales_file)
 
-    data = process(meta_rows, sales_rows)
+    seg_rows = load_rows(EXPORT_URL.format(sid=SPREADSHEET_ID_META, gid=GID_SEG), args.seg_file)
+
+    data = process(meta_rows, sales_rows, seg_rows)
 
     # Insights de Tráfego (texto pré-escrito) — lidos do arquivo versionado ao
     # lado do template. Sem chamada de API no build.
@@ -493,6 +543,9 @@ def main():
     print(f"  compras (tráfego, c/ UTM): {vd}  faturamento: R$ {fat:,.2f}", file=sys.stderr)
     print(f"  investimento Meta        : R$ {sp:,.2f}  (CAC R$ {(sp/vd if vd else 0):,.2f})", file=sys.stderr)
     print(f"  meta      : {len(data['meta'])} linhas", file=sys.stderr)
+    sg = data["seg"]
+    print(f"  seguidores: {sum(g['seg'] for g in sg):.0f} ganhos · investimento R$ {sum(g['sp'] for g in sg):,.2f} "
+          f"· {len(sg)} linhas ({sum(g['inf'] for g in sg)} com seguidores preenchidos)", file=sys.stderr)
     print(f"  out       : {args.out}", file=sys.stderr)
 
 
