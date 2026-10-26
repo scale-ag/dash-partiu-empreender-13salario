@@ -70,19 +70,27 @@
     <div class="page-content">
       <!-- ===================== VISÃO GERAL (CONSOLIDADO: vendas + seguidores) ===================== -->
       <div class="page active" id="page-consol">
-        <h2 class="sec-title">Consolidado · todas as campanhas (Captação de Leads + Captação de Seguidores)</h2>
-        <div class="kpis n2" id="consolKpis"></div>
-
-        <h2 class="sec-title">Investimento &amp; resultados por dia</h2>
+        <h2 class="sec-title">Funil consolidado (Captação de Leads + Captação de Seguidores) &amp; evolução diária</h2>
         <div class="grid funnel-grid">
-          <div class="card"><h3>Divisão do investimento</h3><p class="hint">Quanto foi para cada objetivo no período</p>
-            <div class="donut-wrap" style="height:260px"><canvas id="consolSplit"></canvas><div class="donut-center"><div class="dc-val" id="consolSplitTot">-</div><div class="dc-lbl">total</div></div></div>
+          <div class="card"><div class="funnel" id="consolFunnel"></div>
+            <p class="note">Soma o investimento das duas campanhas (Página1 = vendas · Seguidores IG = seguidores). Compras = só as com UTM. CAC usa só o investimento da campanha de vendas; ROAS geral = faturamento ÷ investimento <b>total</b>.</p>
           </div>
           <div class="panel">
-            <div class="panel-chart"><h3>Evolução diária</h3><p class="hint">Investimento empilhado por objetivo (barras) · Compras e Seguidores (linhas)</p><div class="chart-box"><canvas id="consolCombo"></canvas></div></div>
+            <div class="panel-chart"><h3>Evolução diária</h3><p class="hint">Compras (barras) · Investimento total e CAC (linhas)</p><div class="chart-box"><canvas id="consolCombo"></canvas></div></div>
             <div class="tbl-wrap tbl-normal"><table class="dt" id="consolDaily"></table></div>
-            <p class="note" style="padding:10px 15px 12px">Soma o gasto das duas abas do Meta (Página1 = campanha de vendas · Seguidores IG = campanha de seguidores). Compras = só as com UTM. ROAS geral = faturamento ÷ investimento <b>total</b>. Último dia no topo · clique numa data para filtrar.</p>
+            <p class="note" style="padding:10px 15px 12px">Heatmap por coluna (Investimento · Compras · Seguidores · ROAS) · último dia no topo · clique numa data para filtrar (Ctrl = várias). Valores em R$.</p>
           </div>
+        </div>
+
+        <h2 class="sec-title">KPIs secundários</h2>
+        <div class="kpis n2" id="consolKpis"></div>
+
+        <h2 class="sec-title">Distribuição</h2>
+        <div class="row4">
+          <div class="card"><h3>Investimento por objetivo</h3><p class="hint">Vendas × Seguidores</p><div class="chart-box chart-sm"><canvas id="consolSplit"></canvas></div></div>
+          <div class="card"><h3>Compras por anúncio</h3><p class="hint">utm_content · top 10</p><div class="chart-box chart-sm"><canvas id="consolCompAd"></canvas></div></div>
+          <div class="card"><h3>Seguidores por criativo</h3><p class="hint">Cinza = 0 seguidores</p><div class="chart-box chart-sm"><canvas id="consolSegCr"></canvas></div></div>
+          <div class="card"><h3>Faturamento por anúncio</h3><p class="hint">R$ · top 10</p><div class="chart-box chart-sm"><canvas id="consolFatAd"></canvas></div></div>
         </div>
 
         <h2 class="sec-title">Por campanha</h2>

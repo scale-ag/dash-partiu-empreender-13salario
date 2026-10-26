@@ -480,7 +480,7 @@ function comboChart(id, d){
     data:{labels, datasets:[
       {type:'bar',label:'Compras',data:d.map(x=>x.vendas),backgroundColor:cCompras,yAxisID:'y',borderRadius:3,order:3},
       {type:'line',label:'Investimento',data:d.map(x=>+(x.sp*taxf()).toFixed(2)),borderColor:cGasto,backgroundColor:cGasto,yAxisID:'y1',borderWidth:2,pointRadius:2,tension:.25,order:1},
-      {type:'line',label:'CAC',data:d.map(x=>x.vendas?+((x.sp*taxf())/x.vendas).toFixed(2):null),borderColor:cCac,backgroundColor:cCac,yAxisID:'y1',borderWidth:2,pointRadius:2,spanGaps:true,tension:.25,order:0},
+      {type:'line',label:'CAC',data:d.map(x=>x.vendas?+(((x.cacSp!=null?x.cacSp:x.sp)*taxf())/x.vendas).toFixed(2):null),borderColor:cCac,backgroundColor:cCac,yAxisID:'y1',borderWidth:2,pointRadius:2,spanGaps:true,tension:.25,order:0},
     ]},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
       plugins:{legend:{labels:{color:cink(),boxWidth:10,usePointStyle:true,font:{size:11}}},
@@ -1222,12 +1222,22 @@ function renderConsol(){
   const cl=fM.reduce((s,m)=>s+m.cl,0)+fG.reduce((s,g)=>s+g.cl,0);
   const vendas=fS.reduce((s,x)=>s+(x.vendas||0),0), fat=fS.reduce((s,x)=>s+(x.fat||0),0);
   const seg=fG.reduce((s,g)=>s+g.seg,0);
+  const NA='<span class="na-tag">sem dado</span>';
+  const pv=fM.reduce((x,m)=>x+(m.pv||0),0), chk=fM.reduce((x,m)=>x+(m.ck||0),0);
+  document.getElementById('consolFunnel').innerHTML=funnelHTML([
+    ['Investimento Total', brl(gT), [['Leads',brl(gV)],['Seguidores',brl(gS)]], false, 'hl-gasto'],
+    ['Impressões', intf(im), [['CPM',brl(im?gT/im*1000:null)]]],
+    ['Cliques', intf(cl), [['CTR',pct(im?cl/im:null)],['CPC',brl(cl?gT/cl:null)]]],
+    ['Visitas à Página', intf(pv), [['Custo/Visita',brl(pv?gV/pv:null)]], pv===0],
+    ['Checkout', chk?intf(chk):NA, [['Visita→Checkout',chk&&pv?pct(chk/pv):NA],['Custo/Checkout',chk?brl(gV/chk):NA]], !chk],
+    ['Compras', intf(vendas), [[chk?'Checkout→Compra':'Visita→Compra',(chk||pv)?pct(vendas/(chk||pv)):NA],['CAC',vendas?brl(gV/vendas):NA]], false, 'hl-mql'],
+    ['Faturamento', brl(fat), [['ROAS geral',gT?numf(fat/gT):NA],['Ticket Médio',vendas?brl(fat/vendas):NA]], false, 'hl-fat'],
+    ['Seguidores', intf(seg), [['Custo/Seguidor',seg>0?brl(gS/seg):NA]], false, 'hl-mql'],
+  ]);
   const k=[
-    {label:'Investimento total',val:brl(gT),aux:'Vendas + Seguidores',hero:true},
+    {label:'Investimento total',val:brl(gT),aux:'Vendas + Seguidores'},
     {label:'Invest. Captação de Leads',val:brl(gV),aux:gT?pct(gV/gT)+' do total':'-'},
     {label:'Invest. Captação de Seguidores',val:brl(gS),aux:gT?pct(gS/gT)+' do total':'-'},
-    {label:'Impressões',val:intf(im),aux:'CPM '+brl(im?gT/im*1000:null)},
-    {label:'Cliques',val:intf(cl),aux:'CTR '+pct(im?cl/im:null)+' · CPC '+brl(cl?gT/cl:null)},
     {label:'Compras',val:intf(vendas),aux:'CAC '+brl(vendas?gV/vendas:null)},
     {label:'Faturamento',val:brl(fat),aux:'Ticket '+brl(vendas?fat/vendas:null)},
     {label:'ROAS geral',val:gT?numf(fat/gT)+'×':'-',aux:'Faturamento ÷ investimento total'},
@@ -1235,7 +1245,13 @@ function renderConsol(){
     {label:'Seguidores',val:intf(seg),aux:'Custo/seg. '+(seg>0?brl(gS/seg):'-')},
   ];
   document.getElementById('consolKpis').innerHTML=k.map(kpiCard).join('');
-  donutSplit('consolSplit',[gV,gS],['Captação de Leads (vendas)','Captação de Seguidores'],[cvar('--chart-gasto'),cvar('--chart-cpmql')],'consolSplitTot',brl(gT));
+  hbar('consolSplit',[{label:'Leads',v:gV},{label:'Seguidores',v:gS}],x=>x.v,x=>x.label==='Leads'?cvar('--chart-gasto'):cvar('--chart-cpmql'),null,'investido',brl);
+  const cAd={}; fS.forEach(x=>{cAd[x.ad]=(cAd[x.ad]||0)+(x.vendas||0);});
+  hbar('consolCompAd',Object.entries(cAd).map(([label,v])=>({label,v})),x=>x.v,()=>cvar('--chart-mqls'),10,'compras');
+  const sCr=Object.values(segByAd(fG));
+  hbar('consolSegCr',sCr.map(a=>({label:a.ad,v:a.seg})),x=>x.v,x=>x.v>0?cvar('--chart-mqls'):cvar('--bar-noq'),10,'seguidores');
+  const fAd={}; fS.forEach(x=>{fAd[x.ad]=(fAd[x.ad]||0)+(x.fat||0);});
+  hbar('consolFatAd',Object.entries(fAd).map(([label,v])=>({label,v})),x=>x.v,()=>cvar('--chart-gasto'),10,'R$');
 
   // diário consolidado
   const days={}; const g=d=>days[d]||(days[d]={d,spV:0,spS:0,im:0,cl:0,vendas:0,fat:0,seg:0});
@@ -1243,7 +1259,7 @@ function renderConsol(){
   fG.forEach(x=>{ const a=g(x.d); a.spS+=x.sp; a.im+=x.im; a.cl+=x.cl; a.seg+=x.seg; });
   fS.forEach(x=>{ if(!x.d)return; const a=g(x.d); a.vendas+=x.vendas||0; a.fat+=x.fat||0; });
   const dd=Object.values(days).sort((a,b)=>a.d<b.d?-1:1);
-  consolCombo('consolCombo', dd);
+  comboChart('consolCombo', dd.map(x=>({...x, sp:x.spV+x.spS, cacSp:x.spV})));
   const cells=(x,isT)=>{const v=x.spV*taxf(), s=x.spS*taxf(), tt=v+s; return {date:isT?null:x.d, wd:isT?'':weekday(x.d),
     gt:tt, gv:v, gs:s, im:x.im, cl:x.cl, ctr:x.im?x.cl/x.im:null, vendas:x.vendas, cac:x.vendas?v/x.vendas:null, fat:x.fat,
     roas:tt?x.fat/tt:null, seg:x.seg, cps:x.seg>0?s/x.seg:null};};
