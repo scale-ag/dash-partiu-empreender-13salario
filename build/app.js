@@ -1297,9 +1297,13 @@ const PRESETS=[
   ['ontem','Ontem',()=>[addDays(TODAY,-1),addDays(TODAY,-1)]],
   ['3d','3 dias',()=>[addDays(TODAY,-2),TODAY]],
   ['7d','7 dias',()=>[addDays(TODAY,-6),TODAY]],
+  ['7da','7 dias (até ontem)',()=>[addDays(TODAY,-7),addDays(TODAY,-1)]],
   ['14d','14 dias',()=>[addDays(TODAY,-13),TODAY]],
+  ['14da','14 dias (até ontem)',()=>[addDays(TODAY,-14),addDays(TODAY,-1)]],
   ['30d','30 dias',()=>[addDays(TODAY,-29),TODAY]],
+  ['30da','30 dias (até ontem)',()=>[addDays(TODAY,-30),addDays(TODAY,-1)]],
   ['mes','Este mês',()=>{const [y,m]=TODAY.split('-');return [`${y}-${m}-01`,TODAY];}],
+  ['mesa','Este mês (até ontem)',()=>{const [y,m]=TODAY.split('-');const f=`${y}-${m}-01`, t=addDays(TODAY,-1);return [f, t<f?f:t];}],
   ['mespass','Mês passado',()=>{const dt=new Date(TODAY+'T00:00:00');const f=new Date(dt.getFullYear(),dt.getMonth()-1,1);const l=new Date(dt.getFullYear(),dt.getMonth(),0);return [dstr(f),dstr(l)];}],
   ['todo','Todo período',()=>[B.date_min,B.date_max]],
 ];
@@ -1317,12 +1321,12 @@ function applyPreset(id){ const p=PRESETS.find(x=>x[0]===id); if(!p)return; cons
 /* ---- popover do seletor de período (estilo Data Studio) ---- */
 const MONTHS_PT=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DOW_PT=['D','S','T','Q','Q','S','S'];
-const PP={from:null,to:null,preset:'',fromView:'',toView:''};
+const PP={from:null,to:null,preset:'',fromView:'',toView:'',picking:false};
 function ymView(ds){ return (ds||TODAY).slice(0,7); }
 function shiftView(view,delta){ const [y,m]=view.split('-').map(Number); const dt=new Date(y,m-1+delta,1); return dt.getFullYear()+'-'+pad(dt.getMonth()+1); }
 function ppIsOpen(){ const pop=document.getElementById('periodPop'); return pop && !pop.hidden; }
 function ppOpen(){
-  PP.from=STATE.from; PP.to=STATE.to; PP.preset=STATE.selDays.size?'':STATE.preset;
+  PP.from=STATE.from; PP.to=STATE.to; PP.preset=STATE.selDays.size?'':STATE.preset; PP.picking=false;
   PP.fromView=ymView(STATE.from); PP.toView=ymView(STATE.to);
   document.getElementById('periodPop').hidden=false;
   document.getElementById('periodBtn').setAttribute('aria-expanded','true');
@@ -1336,7 +1340,7 @@ function ppRenderPresets(){
   host.innerHTML=PRESETS.map(p=>`<button class="pp-preset ${PP.preset===p[0]?'active':''}" data-p="${p[0]}">${p[1]}</button>`).join('');
   host.querySelectorAll('.pp-preset').forEach(c=>c.addEventListener('click',()=>{
     const p=PRESETS.find(x=>x[0]===c.dataset.p); const [f,t]=p[2]();
-    PP.from=f; PP.to=t; PP.preset=p[0]; PP.fromView=ymView(f); PP.toView=ymView(t); ppRenderAll();
+    PP.from=f; PP.to=t; PP.preset=p[0]; PP.picking=false; PP.fromView=ymView(f); PP.toView=ymView(t); ppRenderAll();
   }));
 }
 function ppRenderCal(side){
@@ -1361,10 +1365,13 @@ function ppRenderCal(side){
   }));
   host.querySelectorAll('.pp-day[data-d]').forEach(b=>b.addEventListener('click',()=>ppPickDay(side,b.dataset.d)));
 }
+/* seleção por INTERVALO (como Google/Data Studio): 1º clique = início, 2º clique = fim
+   — em qualquer um dos dois calendários; se o 2º for antes do 1º, inverte. Um 3º clique
+   recomeça um intervalo novo. Nada fica preso no dia de hoje. */
 function ppPickDay(side,ds){
   PP.preset='';
-  if(side==='from'){ PP.from=ds; if(PP.to&&PP.from>PP.to) PP.to=PP.from; }
-  else { PP.to=ds; if(PP.from&&PP.to<PP.from) PP.from=PP.to; }
+  if(!PP.picking){ PP.from=ds; PP.to=ds; PP.picking=true; }
+  else { if(ds<PP.from){ PP.to=PP.from; PP.from=ds; } else PP.to=ds; PP.picking=false; }
   ppRenderAll();
 }
 function ppRenderRange(){
@@ -1372,6 +1379,7 @@ function ppRenderRange(){
   if(PP.from&&PP.to){ const n=Math.round((new Date(PP.to+'T00:00:00')-new Date(PP.from+'T00:00:00'))/86400000)+1;
     el.textContent=brdate(PP.from)+' – '+brdate(PP.to)+(n>0?' · '+n+(n>1?' dias':' dia'):''); }
   else el.textContent='Selecione as datas';
+  if(PP.picking) el.textContent='Início: '+brdate(PP.from)+' — agora clique na data final';
 }
 function ppApply(){
   if(!PP.from||!PP.to){ ppClose(); return; }
