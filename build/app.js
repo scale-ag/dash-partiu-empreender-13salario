@@ -1388,7 +1388,7 @@ function ppApply(){
 }
 
 /* ---------------- navigation & boot ---------------- */
-const PAGES={consol:'Visão Geral', vendas:'Funil de Vendas (Captação de Leads)', meta:'Tráfego Pago · Leads (Meta Ads)', seg:'Funil Captação de Seguidores', rel:'Relatório'};
+const PAGES={consol:'Visão Geral', meta:'Tráfego Pago · Leads (Meta Ads)', seg:'Funil Captação de Seguidores', rel:'Relatório'};
 function setPage(p){ if(!PAGES[p]) p='consol'; STATE.page=p;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===p));
   Object.keys(PAGES).forEach(k=>{ const el=document.getElementById('page-'+k); if(el) el.classList.toggle('active',k===p); });
@@ -1440,7 +1440,7 @@ document.getElementById('buildFoot').textContent='build __BUILD_ID__';
 document.getElementById('buildFoot2').textContent='· build __BUILD_ID__';
 
 syncDateInputs();
-setPage((location.hash||'#consol').slice(1)==='geral'?'vendas':(location.hash||'#consol').slice(1));
+setPage((location.hash||'#consol').slice(1));
 
 /* auto-refresh com cache-bust ~30 min */
 setTimeout(()=>{ location.href=location.pathname+'?t='+Date.now()+location.hash; }, 30*60*1000);
