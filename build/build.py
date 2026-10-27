@@ -45,9 +45,9 @@ import urllib.request
 from datetime import datetime, timezone, timedelta
 
 # Duas planilhas DISTINTAS (Meta Ads e Compradores ficam em arquivos separados).
-SPREADSHEET_ID_META  = "1OMB7kekfxCioZZE6Tm2c317m7-FLFjFKcgjR1rMkdWE"  # "Extração Dashboard"
-GID_META  = "0"            # aba "Página1" (Meta Ads: Day/Campaign/Ad Set/Ad/Impr/Clicks/LP Views/Spent)
-GID_SEG   = "1003041051"   # aba "Seguidores IG" (mesma planilha): campanha de Atração de Seguidores
+SPREADSHEET_ID_META  = "11b9DiHAcYrNCAOg-egnpYf3y3kbrBM-gzFa16qBOwBc"  # planilha nova (Meta vendas + Seguidores)
+GID_META  = "0"            # aba "Compradores 13 salario" (conteúdo = Meta Ads da campanha de vendas)
+GID_SEG   = "954641868"    # aba "Seguidores" (mesma planilha): campanha de Atração de Seguidores
 SPREADSHEET_ID_SALES = "1Qe1_LFcrd98hhOTa5rJAL78ZRUoHCZ-Pj4kIRgdiljI"  # "Partiu Empreender | 2026"
 GID_SALES = "1583208180"   # aba "Wks 13º Salario" (Compradores: Data/Nome/Valor da Compra/Forma de Pagto/utm_*)
 EXPORT_URL = "https://docs.google.com/spreadsheets/d/{sid}/export?format=csv&gid={gid}"

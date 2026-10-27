@@ -80,10 +80,10 @@ puro + Chart.js via CDN) publicado no **GitHub Pages**, que cruza a lista de
 
 | Planilha / aba | Spreadsheet ID | gid | Colunas usadas |
 |-----|-----|-----|----------------|
-| **Meta Ads** — "Extração Dashboard", aba **Página1** | `1OMB7kekfxCioZZE6Tm2c317m7-FLFjFKcgjR1rMkdWE` | `0` | `Day` · `Campaign Name` · `Ad Set Name` · `Ad Name` · `Impressions` · `Link Clicks` · `Landing Page Views` · `Amount Spent` |
+| **Meta Ads** — planilha nova, aba **Compradores 13 salario** (conteúdo = Meta Ads) | `11b9DiHAcYrNCAOg-egnpYf3y3kbrBM-gzFa16qBOwBc` | `0` | `Day` · `Campaign Name` · `Ad Set Name` · `Ad Name` · `Impressions` · `Link Clicks` · `Landing Page Views` · `Amount Spent` |
 | **Compradores** — "Partiu Empreender \| 2026", aba **Wks 13º Salario** | `1Qe1_LFcrd98hhOTa5rJAL78ZRUoHCZ-Pj4kIRgdiljI` | `1583208180` | `Data` · `Nome` · `Email` · `Valor da Compra` · `Forma de Pagto` · `Utm_source` · `utm_campaign` · `utm_medium` · `utm_content` · `Utm_term` · `Origem de Checkout` |
 
-| **Seguidores IG** — mesma planilha "Extração Dashboard", aba **Seguidores IG** | `1OMB7kekfxCioZZE6Tm2c317m7-FLFjFKcgjR1rMkdWE` | `1003041051` | `Day` · `Campaign Name` · `Ad Set Name` (criativo = último trecho, ex. "Reels07") · `Impressions` · `Amount Spent` · `Link Clicks` · `Seguidores` (H, manual) · `Custo por Seguidor` (I, manual — não é lido; recalculado como gasto ÷ seguidores) |
+| **Seguidores IG** — mesma planilha nova, aba **Seguidores** | `11b9DiHAcYrNCAOg-egnpYf3y3kbrBM-gzFa16qBOwBc` | `954641868` | `Day` · `Campaign Name` · `Ad Set Name` (criativo = último trecho, ex. "Reels07") · `Impressions` · `Amount Spent` · `Link Clicks` · `Seguidores` (H, manual) · `Custo por Seguidor` (I, manual — não é lido; recalculado como gasto ÷ seguidores) |
 
 > **Seguidores IG:** célula de Seguidores vazia = **0 seguidores** (o gasto do dia continua
 > contando). Custo/Seguidor fica "-" quando o período/criativo teve 0 seguidores.
