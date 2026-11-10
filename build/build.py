@@ -49,6 +49,8 @@ SPREADSHEET_ID_META  = "11b9DiHAcYrNCAOg-egnpYf3y3kbrBM-gzFa16qBOwBc"  # planilh
 GID_META  = "0"            # aba "Compradores 13 salario" (conteúdo = Meta Ads da campanha de vendas)
 GID_SEG   = "954641868"    # aba "Seguidores" (mesma planilha): campanha de Atração de Seguidores
 SPREADSHEET_ID_SALES = "1Qe1_LFcrd98hhOTa5rJAL78ZRUoHCZ-Pj4kIRgdiljI"  # "Partiu Empreender | 2026"
+GID_BN_META = "12014230"    # aba "Black-Nov-26" (planilha nova do Meta): Black November 2026
+GID_BN_SALES = "1321549371"  # aba "Black-NOV-26" (planilha de compradores): checkout da Black November
 GID_SALES = "1583208180"   # aba "Wks 13º Salario" (Compradores: Data/Nome/Valor da Compra/Forma de Pagto/utm_*)
 EXPORT_URL = "https://docs.google.com/spreadsheets/d/{sid}/export?format=csv&gid={gid}"
 
@@ -280,6 +282,58 @@ def placement_label(v):
     return "Outros"
 
 
+# --------------------------------------------------------------------------- #
+# Black November 2026 (aba separada no dash)
+# --------------------------------------------------------------------------- #
+META_SOURCES = {"meta-ads", "meta", "facebook-ads", "facebook", "fb", "fb-ads", "instagram-ads", "meta ads"}
+
+
+def process_black(meta_rows, sales_rows):
+    """Black November: Meta da aba "Black-Nov-26" + checkout da aba "Black-NOV-26".
+    TODAS as vendas do checkout entram (vendas gerais). Uma venda é "do Meta" só
+    quando a UTM aponta para um anúncio/campanha que existe na aba do Meta
+    (utm_content = Ad Name, ou utm_campaign = Campaign Name) ou quando o
+    utm_source é de anúncio do Meta. UTM orgânica (ex.: ig / link_in_bio) conta
+    como venda geral, com a origem dela."""
+    meta, _links, ad_struct = parse_meta(meta_rows)
+    camps = {m["camp"] for m in meta}
+    sales = []
+    if sales_rows:
+        sidx = header_index(
+            sales_rows[0],
+            {"date": ["data"], "name": ["nome"], "value": ["valor da compra", "valor", "faturamento"],
+             "pay": ["forma de pagto", "forma de pagamento", "forma"],
+             "usrc": ["utm_source", "utm source"], "ucamp": ["utm_campaign", "utm campaign"],
+             "umed": ["utm_medium", "utm medium"], "ucont": ["utm_content", "utm content"]},
+            {"date": 0, "name": 1, "value": 3, "pay": 4, "usrc": 5, "ucamp": 6, "umed": 7, "ucont": 8},
+        )
+        for row in sales_rows[1:]:
+            if not any((c or "").strip() for c in row):
+                continue
+            d = parse_date(cell(row, sidx["date"]))
+            if not d:
+                continue
+            usrc = cell(row, sidx["usrc"]); ucamp = cell(row, sidx["ucamp"])
+            ucont = cell(row, sidx["ucont"]); umed = cell(row, sidx["umed"])
+            clean = lambda v: "" if norm(v) in ("", "undefined", "-", "—") else v
+            usrc, ucamp, ucont, umed = clean(usrc), clean(ucamp), clean(ucont), clean(umed)
+            is_meta = (ucont in ad_struct) or (ucamp in camps) or (norm(usrc) in META_SOURCES)
+            if is_meta:
+                ad = ucont if ucont else "(sem anúncio)"
+                camp, adset = ad_struct.get(ad, (ucamp or "(sem campanha)", umed or "(sem conjunto)"))
+                origem = "Meta Ads"
+            else:
+                ad, camp, adset = "(sem anúncio)", "(sem campanha)", "(sem conjunto)"
+                origem = " / ".join(x for x in (usrc, ucamp) if x) or "Sem UTM (direto)"
+            val = round(to_float(cell(row, sidx["value"])), 2)
+            sales.append({"d": d, "meta": 1 if is_meta else 0, "origem": origem,
+                          "camp": camp, "adset": adset, "ad": ad, "vendas": 1, "fat": val, "receita": val,
+                          "pay": cell(row, sidx["pay"]) or "—", "nm": first_last_initial(cell(row, sidx["name"]))})
+    nm = sum(x["meta"] for x in sales)
+    print(f"  black nov : {len(meta)} linhas Meta · {len(sales)} vendas gerais ({nm} do Meta)", file=sys.stderr)
+    return {"meta": meta, "sales": sales}
+
+
 def process_seguidores(seg_rows):
     """Aba "Seguidores IG" (campanha de Atração de Seguidores, mesma planilha do Meta).
     Colunas: Day · Campaign Name · Ad Set Name · Ad Set ID · Impressions ·
@@ -322,8 +376,8 @@ def process_seguidores(seg_rows):
     return out
 
 
-def process(meta_rows, sales_rows, seg_rows=None):
-    seg = process_seguidores(seg_rows)
+def parse_meta(meta_rows):
+    """Linhas do Meta Ads (por anúncio e dia) -> (meta[], ad_links, ad_struct)."""
     # ---- Meta Ads (investimento / impressões / cliques / visitas à página) ----
     mheader = meta_rows[0] if meta_rows else []
     midx = header_index(
@@ -371,6 +425,13 @@ def process(meta_rows, sales_rows, seg_rows=None):
         })
     # Anúncio -> (campanha, conjunto) de MAIOR gasto no Meta (estrutura canônica).
     ad_struct = {ad: max(combos.items(), key=lambda kv: kv[1])[0] for ad, combos in ad_spend.items()}
+
+    return meta, ad_links, ad_struct
+
+
+def process(meta_rows, sales_rows, seg_rows=None):
+    seg = process_seguidores(seg_rows)
+    meta, ad_links, ad_struct = parse_meta(meta_rows)
 
     # ---- Compradores: SÓ as compras COM UTM (= tráfego pago) ----
     # Regra do cliente: entram apenas as compras cujo checkout trouxe UTM
@@ -514,6 +575,8 @@ def main():
     ap.add_argument("--meta-file", help="CSV local da aba Meta Ads (Página1)")
     ap.add_argument("--sales-file", help="CSV local da aba Compradores (Wks 13º Salario)")
     ap.add_argument("--seg-file", help="CSV local da aba Seguidores IG")
+    ap.add_argument("--bn-meta-file", help="CSV local da aba Black-Nov-26 (Meta)")
+    ap.add_argument("--bn-sales-file", help="CSV local da aba Black-NOV-26 (checkout)")
     ap.add_argument("--template", default="build/template.html")
     ap.add_argument("--out", default="dist/index.html")
     args = ap.parse_args()
@@ -524,6 +587,12 @@ def main():
     seg_rows = load_rows(EXPORT_URL.format(sid=SPREADSHEET_ID_META, gid=GID_SEG), args.seg_file)
 
     data = process(meta_rows, sales_rows, seg_rows)
+    bn_meta_rows = load_rows(EXPORT_URL.format(sid=SPREADSHEET_ID_META, gid=GID_BN_META), args.bn_meta_file)
+    bn_sales_rows = load_rows(EXPORT_URL.format(sid=SPREADSHEET_ID_SALES, gid=GID_BN_SALES), args.bn_sales_file)
+    data["bn"] = process_black(bn_meta_rows, bn_sales_rows)
+    bdates = [x["d"] for x in data["bn"]["meta"] + data["bn"]["sales"] if x["d"]]
+    if bdates and data["build"]["date_max"] and max(bdates) > data["build"]["date_max"]:
+        data["build"]["date_max"] = max(bdates)
 
     # Insights de Tráfego (texto pré-escrito) — lidos do arquivo versionado ao
     # lado do template. Sem chamada de API no build.

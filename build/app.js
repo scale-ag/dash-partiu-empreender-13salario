@@ -1291,6 +1291,100 @@ function renderConsol(){
     rows:campRows.sort((a,b)=>b.cells.gasto-a.cells.gasto)});
 }
 
+/* =====================================================================
+   BLACK NOVEMBER 2026 — aba própria (Meta "Black-Nov-26" + checkout "Black-NOV-26")
+   Vendas Meta = UTM aponta para anúncio/campanha da aba do Meta.
+   Vendas gerais = todas as vendas do checkout (Meta + outros canais).
+   ===================================================================== */
+const BN = DATA.bn || {meta:[], sales:[]};
+const bnMetaActive  = ()=> (BN.meta||[]).filter(m=>dateActive(m.d));
+const bnSalesActive = ()=> (BN.sales||[]).filter(s=>dateActive(s.d));
+function bnCombo(id, d){
+  destroy(id); const el=document.getElementById(id); if(!el) return;
+  const mut=cmuted(), gr=cgrid();
+  charts[id]=new Chart(el,{
+    data:{labels:d.map(x=>x.d.slice(5)), datasets:[
+      {type:'bar',label:'Vendas Meta',data:d.map(x=>x.vm),backgroundColor:cvar('--chart-mqls'),yAxisID:'y',stack:'v',borderRadius:3,order:3},
+      {type:'bar',label:'Vendas outros canais',data:d.map(x=>x.vo),backgroundColor:cvar('--bar-noq'),yAxisID:'y',stack:'v',borderRadius:3,order:3},
+      {type:'line',label:'Investimento',data:d.map(x=>+(x.sp*taxf()).toFixed(2)),borderColor:cvar('--chart-gasto'),backgroundColor:cvar('--chart-gasto'),yAxisID:'y1',borderWidth:2,pointRadius:2,tension:.25,order:1},
+      {type:'line',label:'CAC Meta',data:d.map(x=>x.vm?+((x.sp*taxf())/x.vm).toFixed(2):null),borderColor:cvar('--chart-cpmql'),backgroundColor:cvar('--chart-cpmql'),yAxisID:'y1',borderWidth:2,pointRadius:2,spanGaps:true,tension:.25,order:0},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:cink(),boxWidth:10,usePointStyle:true,font:{size:11}}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.dataset.yAxisID==='y1'?brl(c.raw):intf(c.raw))}}},
+      scales:{x:{stacked:true,ticks:{color:mut,font:{size:10}},grid:{display:false}},
+        y:{position:'left',stacked:true,ticks:{color:mut,font:{size:10},precision:0},grid:{color:gr},beginAtZero:true,title:{display:true,text:'Vendas',color:mut,font:{size:10}}},
+        y1:{position:'right',ticks:{color:mut,font:{size:10}},grid:{display:false},beginAtZero:true,title:{display:true,text:'R$',color:mut,font:{size:10}}}}}
+  });
+}
+function renderBN(){
+  const fM=bnMetaActive(), fA=bnSalesActive(), fS=fA.filter(s=>s.meta);
+  const t=totals([],fM,fS), dv=derive(t), s=salesOf(t);
+  const NA='<span class="na-tag">sem dado</span>';
+  document.getElementById('bnFunnel').innerHTML=funnelHTML(trafficSteps(t,dv,s,NA).map(st=>
+    st[0]==='Compras'?['Vendas Meta (UTM)',...st.slice(1)]:st[0]==='Faturamento'?['Faturamento Meta',...st.slice(1)]:st));
+  const vG=fA.length, fG=fA.reduce((a,x)=>a+(x.fat||0),0), vM=fS.length, fatM=fS.reduce((a,x)=>a+(x.fat||0),0);
+  const g=dv.gasto;
+  const k=[
+    {label:'Vendas gerais',val:intf(vG),aux:'todas as vendas do checkout',hero:true},
+    {label:'Faturamento geral',val:brl(fG),aux:'Ticket '+brl(vG?fG/vG:null)},
+    {label:'Vendas Meta (UTM)',val:intf(vM),aux:vG?pct(vM/vG)+' das vendas':'-'},
+    {label:'Faturamento Meta',val:brl(fatM),aux:fG?pct(fatM/fG)+' do faturamento':'-'},
+    {label:'Vendas outros canais',val:intf(vG-vM),aux:brl(fG-fatM)},
+    {label:'CAC Meta',val:vM?brl(g/vM):'-',aux:'Investimento ÷ vendas Meta'},
+    {label:'ROAS Meta',val:g?numf(fatM/g)+'×':'-',aux:'Faturamento Meta ÷ investimento'},
+    {label:'ROAS geral',val:g?numf(fG/g)+'×':'-',aux:'Faturamento geral ÷ investimento'},
+  ];
+  document.getElementById('bnKpis').innerHTML=k.map(kpiCard).join('');
+  // diário
+  const days={}; const gd=d=>days[d]||(days[d]={d,sp:0,im:0,cl:0,pv:0,chk:0,vm:0,vo:0,fm:0,fg:0});
+  fM.forEach(m=>{ if(!m.d)return; const a=gd(m.d); a.sp+=m.sp; a.im+=m.im; a.cl+=m.cl; a.pv+=m.pv||0; a.chk+=m.ck||0; });
+  fA.forEach(x=>{ const a=gd(x.d); if(x.meta){a.vm++; a.fm+=x.fat||0;} else a.vo++; a.fg+=x.fat||0; });
+  const dd=Object.values(days).sort((a,b)=>a.d<b.d?-1:1);
+  bnCombo('bnCombo', dd);
+  const cells=(x,isT)=>{const gg=x.sp*taxf(); return {date:isT?null:x.d, wd:isT?'':weekday(x.d), gasto:gg, im:x.im, ctr:x.im?x.cl/x.im:null, cl:x.cl,
+    pv:x.pv, chk:x.chk, cpck:x.chk?gg/x.chk:null, vm:x.vm, cac:x.vm?gg/x.vm:null, fm:x.fm, roas:gg?x.fm/gg:null,
+    vg:x.vm+x.vo, fg:x.fg, roasg:gg?x.fg/gg:null};};
+  const tot=dd.reduce((a,x)=>{Object.keys(a).forEach(kk=>a[kk]+=x[kk]);return a;},{sp:0,im:0,cl:0,pv:0,chk:0,vm:0,vo:0,fm:0,fg:0});
+  renderTable({id:'bnDaily', center:true, fit:true,
+    cols:[{key:'date',label:'Data',type:'date'},{key:'wd',label:'Dia',type:'dim',w:70},
+      {key:'gasto',label:'Investim.',type:'brl',heat:'gasto'},{key:'im',label:'Impr.',type:'int'},{key:'ctr',label:'CTR',type:'pct'},
+      {key:'cl',label:'Cliques',type:'int'},{key:'pv',label:'Visitas',type:'int',heat:'leads'},{key:'chk',label:'Checkout',type:'int',heat:'mqls'},
+      {key:'cpck',label:'Custo/Chk',type:'brl'},{key:'vm',label:'Vendas Meta',type:'int',heat:'vendas'},{key:'cac',label:'CAC Meta',type:'brl'},
+      {key:'fm',label:'Fat. Meta',type:'brl'},{key:'roas',label:'ROAS Meta',type:'num',heat:'roas'},
+      {key:'vg',label:'Vendas gerais',type:'int'},{key:'fg',label:'Fat. geral',type:'brl'},{key:'roasg',label:'ROAS geral',type:'num'}],
+    rows:dd.slice().reverse().map(x=>({k:x.d, cells:cells(x)})), total:cells(tot,true),
+    selectable:true, selSet:STATE.selDays,
+    onSelect:(kk,e)=>{ toggleSet(STATE.selDays,kk,e&&(e.ctrlKey||e.metaKey)); syncDateInputs(); renderAll(); }});
+  // distribuição
+  const byO={}; fA.forEach(x=>{byO[x.origem]=(byO[x.origem]||0)+1;});
+  hbar('bnOrig',Object.entries(byO).map(([label,v])=>({label,v})),x=>x.v,x=>x.label==='Meta Ads'?cvar('--chart-mqls'):cvar('--bar-noq'),10,'vendas');
+  const fO={}; fA.forEach(x=>{fO[x.origem]=(fO[x.origem]||0)+(x.fat||0);});
+  hbar('bnFatOrig',Object.entries(fO).map(([label,v])=>({label,v})),x=>x.v,x=>x.label==='Meta Ads'?cvar('--chart-gasto'):cvar('--bar-noq'),10,'R$',brl);
+  const agg=buildAgg([],fM,fS,'ad');
+  hbar('bnVendAd',Object.entries(agg).map(([label,a])=>({label,v:a.vendas})),x=>x.v,()=>cvar('--chart-mqls'),10,'vendas');
+  hbar('bnChkAd',Object.entries(agg).map(([label,a])=>({label,v:a.chk})),x=>x.v,()=>cvar('--chart-leads'),10,'checkouts');
+  // anúncios
+  const adRows=Object.entries(agg).map(([ad,a])=>{const d=derive(a), s2=salesOf(a);
+    return {k:ad, cells:{ad, gasto:d.gasto, im:a.im, ctr:d.ctr, cl:a.cl, cpc:d.cpc, pv:a.pv, chk:a.chk, cpck:d.cpck, vendas:s2.vendas, cac:s2.cac, fat:s2.fat, roas:s2.roas}};})
+    .sort((a,b)=>((b.cells.vendas||0)-(a.cells.vendas||0))||(b.cells.gasto-a.cells.gasto));
+  const ta=totals([],fM,fS), dta=derive(ta), sta=salesOf(ta);
+  renderTable({id:'bnAds', center:true,
+    cols:[{key:'ad',label:'Anúncio',type:'dim'},{key:'gasto',label:'Investim.',type:'brl',heat:'gasto'},{key:'im',label:'Impr.',type:'int'},
+      {key:'ctr',label:'CTR',type:'pct'},{key:'cl',label:'Cliques',type:'int'},{key:'cpc',label:'CPC',type:'brl'},{key:'pv',label:'Visitas',type:'int'},
+      {key:'chk',label:'Checkout',type:'int'},{key:'cpck',label:'Custo/Chk',type:'brl'},{key:'vendas',label:'Vendas Meta',type:'int',heat:'vendas'},
+      {key:'cac',label:'CAC',type:'brl'},{key:'fat',label:'Faturamento',type:'brl'},{key:'roas',label:'ROAS',type:'num',heat:'roas'}],
+    rows:adRows, total:{ad:null, gasto:dta.gasto, im:ta.im, ctr:dta.ctr, cl:ta.cl, cpc:dta.cpc, pv:ta.pv, chk:ta.chk, cpck:dta.cpck, vendas:sta.vendas, cac:sta.cac, fat:sta.fat, roas:sta.roas}});
+  // vendas
+  const vs=fA.slice().sort((a,b)=>a.d<b.d?1:-1);
+  document.getElementById('bnCount').textContent=vs.length+' vendas';
+  renderTable({id:'bnSales', center:true,
+    cols:[{key:'d',label:'Data',type:'date'},{key:'nm',label:'Nome',type:'dim'},{key:'tipo',label:'Tipo',type:'html',w:120},
+      {key:'origem',label:'Origem',type:'dim'},{key:'ad',label:'Anúncio',type:'dim'},{key:'pay',label:'Pagamento',type:'dim'},{key:'fat',label:'Valor',type:'brl'}],
+    rows:vs.map((x,i)=>({k:'bn'+i, cells:{d:x.d, nm:x.nm, tipo:x.meta?'<span class="rel-chip c-green">Meta</span>':'<span class="rel-chip c-yellow">Outros</span>',
+      origem:x.origem, ad:x.meta?x.ad:'—', pay:x.pay, fat:x.fat}}))});
+}
+
 /* ---------------- date presets ---------------- */
 const PRESETS=[
   ['hoje','Hoje',()=>[TODAY,TODAY]],
@@ -1388,7 +1482,7 @@ function ppApply(){
 }
 
 /* ---------------- navigation & boot ---------------- */
-const PAGES={consol:'Visão Geral', meta:'Tráfego Pago · Leads (Meta Ads)', seg:'Funil Captação de Seguidores', rel:'Relatório'};
+const PAGES={consol:'Visão Geral', meta:'Tráfego Pago · Leads (Meta Ads)', seg:'Funil Captação de Seguidores', bn:'Black November 2026', rel:'Relatório'};
 function setPage(p){ if(!PAGES[p]) p='consol'; STATE.page=p;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===p));
   Object.keys(PAGES).forEach(k=>{ const el=document.getElementById('page-'+k); if(el) el.classList.toggle('active',k===p); });
@@ -1398,7 +1492,7 @@ function setPage(p){ if(!PAGES[p]) p='consol'; STATE.page=p;
   renderAll();
 }
 function renderAll(){ const p=STATE.page;
-  if(p==='meta') renderMeta(); else if(p==='rel') renderRelatorio(); else if(p==='seg') renderSeg(); else if(p==='vendas') renderGeral(); else renderConsol(); }
+  if(p==='meta') renderMeta(); else if(p==='rel') renderRelatorio(); else if(p==='seg') renderSeg(); else if(p==='bn') renderBN(); else if(p==='vendas') renderGeral(); else renderConsol(); }
 
 function applyTheme(){ const t=localStorage.getItem('dm_theme'); if(t==='light') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme','dark'); }
 applyTheme();

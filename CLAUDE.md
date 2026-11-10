@@ -85,6 +85,14 @@ puro + Chart.js via CDN) publicado no **GitHub Pages**, que cruza a lista de
 
 | **Seguidores IG** — mesma planilha nova, aba **Seguidores** | `11b9DiHAcYrNCAOg-egnpYf3y3kbrBM-gzFa16qBOwBc` | `954641868` | `Day` · `Campaign Name` · `Ad Set Name` (criativo = último trecho, ex. "Reels07") · `Impressions` · `Amount Spent` · `Link Clicks` · `Seguidores` (H, manual) · `Custo por Seguidor` (I, manual — não é lido; recalculado como gasto ÷ seguidores) |
 
+| **Black November 2026 — Meta** — planilha nova, aba **Black-Nov-26** | `11b9DiHAcYrNCAOg-egnpYf3y3kbrBM-gzFa16qBOwBc` | `12014230` | mesmas colunas do Meta + `Checkouts Initiated` |
+| **Black November 2026 — checkout** — "Partiu Empreender \| 2026", aba **Black-NOV-26** | `1Qe1_LFcrd98hhOTa5rJAL78ZRUoHCZ-Pj4kIRgdiljI` | `1321549371` | mesmas colunas de Compradores |
+
+> **Black November 2026** (página própria, `build.py` → `process_black()`, `app.js` → `renderBN()`):
+> TODAS as vendas do checkout entram como **vendas gerais**. Venda **Meta** = `utm_content` é um Ad Name
+> da aba Black-Nov-26, ou `utm_campaign` é uma campanha dela, ou `utm_source` de anúncio Meta.
+> UTM orgânica (ex.: `ig / link_in_bio`) e sem UTM = **outros canais**. Não entra na Visão Geral consolidada.
+
 > **Seguidores IG:** célula de Seguidores vazia = **0 seguidores** (o gasto do dia continua
 > contando). Custo/Seguidor fica "-" quando o período/criativo teve 0 seguidores.
 > Páginas do dash: **Visão Geral** (consolidado: soma gasto e resultados das duas campanhas) ·
