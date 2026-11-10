@@ -96,7 +96,7 @@ puro + Chart.js via CDN) publicado no **GitHub Pages**, que cruza a lista de
 > **Seguidores IG:** célula de Seguidores vazia = **0 seguidores** (o gasto do dia continua
 > contando). Custo/Seguidor fica "-" quando o período/criativo teve 0 seguidores.
 > Páginas do dash: **Visão Geral** (consolidado: soma gasto e resultados das duas campanhas) ·
-> **Captação de Leads** (Funil de Vendas, Tráfego Pago, Relatório — só a Página1) ·
+> **Captação de Leads** (Tráfego Pago — só a aba do Meta de vendas) · **Black November 2026** ·
 > **Funil Captação de Seguidores** (só a aba Seguidores IG).
 
 > A aba Meta Ads **não tem** colunas de Adds to Cart/Checkout, Subscriptions nem

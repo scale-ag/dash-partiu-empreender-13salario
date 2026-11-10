@@ -1482,7 +1482,7 @@ function ppApply(){
 }
 
 /* ---------------- navigation & boot ---------------- */
-const PAGES={consol:'Visão Geral', meta:'Tráfego Pago · Leads (Meta Ads)', seg:'Funil Captação de Seguidores', bn:'Black November 2026', rel:'Relatório'};
+const PAGES={consol:'Visão Geral', meta:'Tráfego Pago · Leads (Meta Ads)', seg:'Funil Captação de Seguidores', bn:'Black November 2026'};
 function setPage(p){ if(!PAGES[p]) p='consol'; STATE.page=p;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===p));
   Object.keys(PAGES).forEach(k=>{ const el=document.getElementById('page-'+k); if(el) el.classList.toggle('active',k===p); });
